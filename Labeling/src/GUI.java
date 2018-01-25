@@ -56,7 +56,7 @@ public class GUI implements MouseListener,KeyListener{
 	private JScrollPane jsp;
 	private JPanel imgPanel;
 	private JLabel lblNewLabel;
-	private RecPanel recp = null;
+	private RecPanel recp = RecPanel.getInstance();
 	private BufferedImage bigImage = null;
 	
 	private static File sourcedir;
@@ -206,12 +206,14 @@ public class GUI implements MouseListener,KeyListener{
 	    
 		
 		addImagesToJPanel();
+		DragListener drag = new DragListener();
+		recp.addMouseListener( drag );
+		recp.addMouseMotionListener( drag );
 	}
 
 	@Override
 	public void mouseClicked(MouseEvent e) {
 		// TODO Auto-generated method stub
-		recp = RecPanel.getInstance();
 				
 		if(recp!=null){
 			Point p = e.getPoint();
@@ -225,9 +227,7 @@ public class GUI implements MouseListener,KeyListener{
 			recp.setOpaque(false);
 			recp.setLocation(z,z2);
 			
-			DragListener drag = new DragListener();
-			recp.addMouseListener( drag );
-			recp.addMouseMotionListener( drag );
+			
 				
 			layeredPane.add(recp, new Integer(0),0);
 		} 
