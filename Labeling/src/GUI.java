@@ -17,12 +17,16 @@ import javax.imageio.metadata.IIOMetadataNode;
 import javax.imageio.stream.ImageInputStream;
 import javax.imageio.stream.ImageOutputStream;
 import javax.swing.BorderFactory;
+import javax.swing.BoxLayout;
 import javax.swing.ImageIcon;
+import javax.swing.JButton;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JLayeredPane;
+import javax.swing.JOptionPane;
 import javax.swing.SpringLayout;
+import javax.swing.SwingConstants;
 
 import org.w3c.dom.NodeList;
 
@@ -44,12 +48,20 @@ import java.util.Iterator;
 import java.util.LinkedList;
 
 import javax.swing.JScrollPane;
+import javax.swing.JTextField;
 import javax.swing.JPanel;
 import java.awt.FlowLayout;
+import java.awt.Font;
+
 import javax.swing.ScrollPaneConstants;
 
 public class GUI implements MouseListener,KeyListener{
 
+	//Variablen für den Dimensionsabfrage-Dialog
+    private int xValue = 200;
+    private int yValue = 200;
+	
+	
 	private JFrame frame;
 	private JLayeredPane layeredPane;
 	private JScrollPane jsp;
@@ -168,6 +180,7 @@ public class GUI implements MouseListener,KeyListener{
 			System.out.println("No Selection ");
 			System.exit(0);
 		}
+		singleDialogInformation();
 	
 		
 		//Bilder aus gewählter Quelle werden geladen
@@ -488,7 +501,6 @@ public class GUI implements MouseListener,KeyListener{
 		
 		labellist = new LinkedList<JLabel>();
 		int imageHeight=0;
-		System.out.println("Das hier ist die imgList "+imgList);
 		
 		//Panel mit Gridlayout um die bilder untereinander einzufügen
 		GridLayout gl_panel = new GridLayout(0, 1);
@@ -515,7 +527,6 @@ public class GUI implements MouseListener,KeyListener{
 			}
 			
 		}
-		System.out.println("Hier der inhalt der labelliste "+labellist);
 		panel.setPreferredSize(new Dimension(imgPanel.getWidth()-20,imageHeight));  //das hier funktioniert noch nicht ganz (siehe Problem wegen des Layouts)
 		
 		
@@ -541,4 +552,49 @@ public class GUI implements MouseListener,KeyListener{
 		lblNewLabel.setIcon(new ImageIcon(buff));
 		bigImage = buff;
 	}
+	
+	 public void singleDialogInformation() {
+		 
+		 	JPanel pane2 = new JPanel();
+	        pane2.setLayout(new GridLayout(1,3));
+	        
+
+	        JTextField xDim = new JTextField(5);
+	        xDim.addAncestorListener( new RequestFocusListener() ); //Bringt den Fokus auf das erste Textfeld
+	        JTextField yDim = new JTextField(5);
+	        
+	        //Font wird festgelegt
+	        Font font = new Font("Arial", Font.BOLD, 20);
+	        xDim.setFont(font);
+	        yDim.setFont(font);
+
+	        pane2.add(xDim);
+
+	        JLabel label = new JLabel("X",SwingConstants.CENTER);
+	        label.setFont(font);
+	        pane2.add(label);
+	        pane2.add(yDim);
+	        
+	        int option = JOptionPane.showConfirmDialog(null, pane2,"Größe der Bildausschnitte (px)", JOptionPane.OK_CANCEL_OPTION,JOptionPane.PLAIN_MESSAGE);
+	        
+	        if (option == JOptionPane.OK_OPTION) {
+
+	            String xInput = xDim.getText();
+	            String yInput = yDim.getText();
+
+	            try {
+	                xValue = Integer.parseInt(xInput);
+	                yValue = Integer.parseInt(yInput);
+	            } catch (NumberFormatException nfe) {
+	                nfe.printStackTrace();
+	            }
+
+	            
+	            recp.setWidth(xValue);
+	            recp.setHeight(yValue);
+	        }else{
+	        	System.out.println("No Selection");
+				System.exit(0);
+	        }
+	 }
 }

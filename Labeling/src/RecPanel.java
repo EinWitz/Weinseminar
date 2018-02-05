@@ -47,4 +47,11 @@ public class RecPanel extends JPanel {
 		   return height;
 	   }
 
+	   public void setWidth(int width){
+		   this.width = width;
+	   }
+	   
+	   public void setHeight(int height){
+		   this.height = height;
+	   }
 }
