@@ -379,6 +379,22 @@ public class GUI implements MouseListener,KeyListener{
 		// TODO Auto-generated method stub
 		char kchar = k.getKeyChar();
 		String labelValue = String.valueOf(kchar);
+		int keyCode = k.getKeyCode();
+		
+		switch( keyCode ) { 
+        case KeyEvent.VK_UP:
+            if(lastImageFocus>0){
+            	handleFocusSwap(lastImageFocus-1);
+            }
+            break;
+        case KeyEvent.VK_DOWN:
+        	 if(lastImageFocus<(imgList.size()-1)){
+             	handleFocusSwap(lastImageFocus+1);
+             }
+            break;
+        default:
+        	break;
+     }
 		
 		if(!labelValue.equals("0") && !labelValue.equals("1")){
 			System.out.println("Für das labeling sind nur 0 und 1 erlaubt");
