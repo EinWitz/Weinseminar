@@ -39,7 +39,6 @@ import java.awt.image.RasterFormatException;
 import java.io.File;
 import java.io.FilenameFilter;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -473,6 +472,7 @@ public class GUI implements MouseListener,KeyListener{
 		
 		labellist = new LinkedList<JLabel>();
 		int imageHeight=0;
+		System.out.println("Das hier ist die imgList "+imgList);
 		
 		//Panel mit Gridlayout um die bilder untereinander einzufügen
 		GridLayout gl_panel = new GridLayout(0, 1);
@@ -484,17 +484,22 @@ public class GUI implements MouseListener,KeyListener{
 		//Labels im panel "panel" indizieren damit über mouselistener ein click registriert und mit dem index der imgList-Liste verknüpft werden kann
 		for(int i=0;i<imgList.size();i++){
 			labellist.add(new IndexedJLabel(i,this));
-			Image scaledImage = imgList.get(i).getScaledInstance(imgPanel.getWidth()-20,-1,Image.SCALE_FAST);
-			labellist.get(i).setIcon(new ImageIcon(scaledImage));
-			labellist.get(i).setPreferredSize(new Dimension(imgPanel.getWidth()-20,scaledImage.getHeight(labellist.get(i))));
-			if(i==0){
-				labellist.get(i).setBorder(BorderFactory.createLineBorder(Color.BLACK,5));
+			try{
+				Image scaledImage = imgList.get(i).getScaledInstance(imgPanel.getWidth()-20,-1,Image.SCALE_FAST);
+				labellist.get(i).setIcon(new ImageIcon(scaledImage));
+				labellist.get(i).setPreferredSize(new Dimension(imgPanel.getWidth()-20,scaledImage.getHeight(labellist.get(i))));
+				if(i==0){
+					labellist.get(i).setBorder(BorderFactory.createLineBorder(Color.BLACK,5));
+				}
+				labellist.get(i).setVisible(true);
+				panel.add(labellist.get(i));
+				imageHeight += scaledImage.getHeight(labellist.get(i));
+			}catch (Exception e) {
+				System.out.println("Vermutlich nen leerer Imagecontainer DU HUND!");
 			}
-			labellist.get(i).setVisible(true);
-			panel.add(labellist.get(i));
-			imageHeight += scaledImage.getHeight(labellist.get(i));
+			
 		}
-		
+		System.out.println("Hier der inhalt der labelliste "+labellist);
 		panel.setPreferredSize(new Dimension(imgPanel.getWidth()-20,imageHeight));  //das hier funktioniert noch nicht ganz (siehe Problem wegen des Layouts)
 		
 		
