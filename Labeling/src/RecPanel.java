@@ -8,8 +8,8 @@ import javax.swing.border.LineBorder;
 public class RecPanel extends JPanel {
 	
 		private static RecPanel instance = null;
-		private int width = 300;
-		private int height = 540;
+		private int width = 200;
+		private int height = 200;
 		
 		
 	   @Override
