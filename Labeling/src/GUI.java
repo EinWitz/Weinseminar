@@ -324,28 +324,6 @@ public class GUI implements MouseListener,KeyListener{
 	        }
 	 }
 
-	 
-	 private static File generateOutputDir(){
-		 //for png
-		 String dir = destinationdir.getAbsolutePath();
-		 dir = dir+"\\"+indexOfImages+".png";
-		 System.out.println("Output directory: "+dir);
-		 
-		 File outputdir = new File(dir);
-		 //outputdir.mkdirs();
-		 
-		 return outputdir;
-	 }
-	 
-	 private static void modifyDestinationDir(File destinationdir_temp){
-		 String dir = destinationdir_temp.getAbsolutePath();
-		 String timestamp = new SimpleDateFormat("dd.MM.yyyy HH-mm-ss").format(new Date());
-		 dir = dir+"\\"+timestamp;
-		 System.out.println("Modified directory: "+dir);
-		 
-		 destinationdir = new File(dir);
-	 }
-
 	    
 	 private static void addTextEntry(final IIOMetadata metadata, final String key, final String value) throws IIOInvalidTreeException {
 	        IIOMetadataNode textEntry = new IIOMetadataNode("TextEntry");
@@ -378,12 +356,32 @@ public class GUI implements MouseListener,KeyListener{
 	    
 	 }
 
+	 
+	 private static File generateOutputDir(){
+		 //for png
+		 String dir = destinationdir.getAbsolutePath();
+		 dir = dir+"\\"+indexOfImages+".png";
+		 System.out.println("Output directory: "+dir);
+		 
+		 File outputdir = new File(dir);
+		 //outputdir.mkdirs();
+		 
+		 return outputdir;
+	 }
+	 
+	 private static void modifyDestinationDir(File destinationdir_temp){
+		 String dir = destinationdir_temp.getAbsolutePath();
+		 String timestamp = new SimpleDateFormat("dd.MM.yyyy HH-mm-ss").format(new Date());
+		 dir = dir+"\\"+timestamp;
+		 System.out.println("Modified directory: "+dir);
+		 
+		 destinationdir = new File(dir);
+	 }
+
+	 
 	@Override
 	public void keyPressed(KeyEvent k) {
 		// TODO Auto-generated method stub
-
-		
-		
 		
 	}
 
