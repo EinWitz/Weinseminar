@@ -3,11 +3,14 @@ import java.awt.EventQueue;
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
+import javax.imageio.ImageWriteParam;
 import javax.imageio.ImageWriter;
 import javax.imageio.metadata.IIOInvalidTreeException;
 import javax.imageio.metadata.IIOMetadata;
 import javax.imageio.metadata.IIOMetadataFormatImpl;
 import javax.imageio.metadata.IIOMetadataNode;
+import javax.imageio.plugins.jpeg.JPEGImageWriteParam;
+import javax.imageio.stream.FileImageInputStream;
 import javax.imageio.stream.ImageInputStream;
 import javax.imageio.stream.ImageOutputStream;
 import javax.swing.ImageIcon;
@@ -20,18 +23,26 @@ import java.awt.GridBagLayout;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.image.BufferedImage;
+import java.awt.image.RenderedImage;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FilenameFilter;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Random;
 
 import javax.swing.SwingWorker;
 
+import org.w3c.dom.Element;
+import org.w3c.dom.NamedNodeMap;
+import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
 
@@ -47,13 +58,13 @@ public class LabelIt implements KeyListener {
 	private static File outputdirN;
 	private static File outputdirT;
 	private LinkedList<File> refList;
+	private LinkedList<File> last3;
 	private LinkedList<File> refListTemp;
 	private LinkedList<BufferedImage> imgList;
 	private LinkedList<JLabel> labellist;
 	private int index;
 	private int batchsize=25; //Die Größe der Bilderbatches die in den Arbeitsspeicher geladen und dann angezeigt werden
-	
-	//public String driver = "org.apache.derby.jdbc.EmbeddedDriver";
+
 	
 	private JFrame frame;
 	private JLayeredPane lPanel;
@@ -142,7 +153,7 @@ public class LabelIt implements KeyListener {
 	public void loadImagePaths(){
 		 // array of supported extensions (use a List if you prefer)
 	    final String[] EXTENSIONS = new String[]{
-	        "png","jpg" // Nur png wird momentan akzeptiert
+	        "jpg" // Nur jpg wird momentan akzeptiert
 	    };
 	    
 	    //Liste zum Speichern der Bildpfade der sourcedir
@@ -268,6 +279,11 @@ public class LabelIt implements KeyListener {
         		System.out.println(labellist.size());
         	}	
         	break;
+        case  KeyEvent.VK_BACK_SPACE:
+        	if(last3.size()!=0) {
+        		refList.add(last3.removeLast());
+        	}
+        	
         default:
         	break;
      }
@@ -451,9 +467,11 @@ public class LabelIt implements KeyListener {
 				// TODO Auto-generated method stub
 				return imgList;
 			}else {
-				File out = writeMetadata(label, ref);
-				System.out.println(out);
-				readMetadata(out);
+				//File out = writeMetadata(label, ref); <- Methode für png
+				//readMetadata(out); <- Methode für png
+				
+				File out = writeMeta(ref,label); //<- Methode für jpg
+				readMeta(out); //<- Methode für jpg
 				return null;
 			}
 			
@@ -477,6 +495,118 @@ public class LabelIt implements KeyListener {
 			
 	     }
 		
+	}
+	
+	public File writeMeta(File imageDir, String label) {
+			File out = null;
+	        String filePath = null;
+	        
+	        //Create output path for Images
+	        //Split before first ',' to get value p,n or t
+	        switch(label) {
+	        case "p":
+	        	filePath = outputdirP.getAbsolutePath()+File.separatorChar+imageDir.getName();
+	        	out = new File(filePath);
+	        	break;
+	        case "n":
+	        	filePath = outputdirN.getAbsolutePath()+File.separatorChar+imageDir.getName();
+	        	out = new File(filePath);
+	        	break;
+	        case "t":
+	        	filePath = outputdirT.getAbsolutePath()+File.separatorChar+imageDir.getName();
+	        	out = new File(filePath);
+	        	break;
+	        default:
+	        	System.out.println("Fehler im verschieben der Bilder (writeMetadata()).");
+	        	break;
+	        }
+		
+	        ImageWriter writer = ImageIO.getImageWritersBySuffix("jpeg").next();
+	        ImageReader reader = ImageIO.getImageReader(writer);
+	        
+
+	        try {
+	        	ImageInputStream input = ImageIO.createImageInputStream(imageDir);
+				reader.setInput(input);
+				RenderedImage img = reader.read(0);
+		        IIOMetadata meta = reader.getImageMetadata(0);
+		        input.close();
+		        Element tree = (Element) meta.getAsTree("javax_imageio_jpeg_image_1.0");
+		        NodeList comNL = tree.getElementsByTagName("com");
+		        IIOMetadataNode comNode;
+		        if (comNL.getLength() == 0) {
+		            comNode = new IIOMetadataNode("com");
+		            Node markerSequenceNode = tree.getElementsByTagName("markerSequence").item(0);
+		            markerSequenceNode.insertBefore(comNode,markerSequenceNode.getFirstChild());
+		        } else {
+		            comNode = (IIOMetadataNode) comNL.item(0);
+		        }
+		        comNode.setUserObject(new String(label).getBytes("ISO-8859-1"));
+		        meta.setFromTree("javax_imageio_jpeg_image_1.0", tree);
+		        
+		     // set JPG params
+		        JPEGImageWriteParam param = new JPEGImageWriteParam(Locale.getDefault());
+		        param.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+		        param.setCompressionQuality(1);
+		        param.setOptimizeHuffmanTables(true);
+
+		        // save the image with new comment inside
+		        IIOImage iioimage = new IIOImage(img, null, meta);
+		        writer.setOutput(ImageIO.createImageOutputStream(out));
+		        writer.write(null, iioimage, param);
+		        last3.add(out);
+		        if(last3.size()>3) {
+		        	last3.removeFirst();
+		        }
+		        
+		        
+		        
+			} catch (FileNotFoundException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+	        
+	        writer.dispose();
+	        reader.dispose();
+	        Path path = Paths.get(imageDir.getAbsolutePath());
+	        try {
+				Files.delete(path);
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+	        
+	        return out;
+	}
+	
+	public void readMeta(File file) {
+		//inputStream erstellen (siehe png methode), writer hier löschen
+		
+		 ImageWriter writer = ImageIO.getImageWritersBySuffix("jpeg").next();
+	        ImageReader reader = ImageIO.getImageReader(writer);
+
+	        try {
+				reader.setInput(new FileImageInputStream(file));
+		        IIOMetadata meta = reader.getImageMetadata(0);
+		        Element tree = (Element) meta.getAsTree("javax_imageio_jpeg_image_1.0");
+		        IIOMetadataNode comNode = (IIOMetadataNode)tree.getElementsByTagName("com").item(0);
+		        NamedNodeMap map = comNode.getAttributes();
+		        if (map != null) { // print attribute values
+		    		int length = map.getLength();
+		    		for (int i = 0; i < length; i++) {
+		    			Node attr = map.item(i);
+		    			System.out.print(attr.getNodeName() + "=" + attr.getNodeValue());
+		    		}
+		    	}
+		        
+	        }catch(Exception e) {
+	        	
+	        }
+	        writer.dispose();
+	        reader.dispose();
 	}
 	
 }
