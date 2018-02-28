@@ -18,6 +18,7 @@ import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JLayeredPane;
+import javax.swing.JPanel;
 
 import java.awt.GridBagLayout;
 import java.awt.event.KeyEvent;
@@ -31,12 +32,10 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Random;
 
 import javax.swing.SwingWorker;
 
@@ -47,6 +46,7 @@ import org.w3c.dom.NodeList;
 
 
 import java.awt.GridBagConstraints;
+import java.awt.CardLayout;
 import java.awt.Dimension;
 
 
@@ -64,10 +64,13 @@ public class LabelIt implements KeyListener {
 	private LinkedList<JLabel> labellist;
 	private int index;
 	private int batchsize=25; //Die Größe der Bilderbatches die in den Arbeitsspeicher geladen und dann angezeigt werden
-
 	
+
+	private JPanel cards;
 	private JFrame frame;
 	private JLayeredPane lPanel;
+	private JLayeredPane lPanelCorr;
+	private CardLayout cl;
 
 	/**
 	 * Launch the application.
@@ -105,6 +108,7 @@ public class LabelIt implements KeyListener {
 		labellist = new LinkedList<JLabel>();
 		imgList = new LinkedList<BufferedImage>();
 		refListTemp = new LinkedList<File>();
+		last3 = new LinkedList<File>();
 		
 		//File Chooser
 		JFileChooser chooser = new JFileChooser();
@@ -141,19 +145,36 @@ public class LabelIt implements KeyListener {
 		frame.getContentPane().setLayout(gridBagLayout);
 		frame.addKeyListener(this);
 		
-		lPanel = new JLayeredPane();
 		GridBagConstraints gbc_panel = new GridBagConstraints();
 		gbc_panel.fill = GridBagConstraints.BOTH;
 		gbc_panel.gridx = 0;
 		gbc_panel.gridy = 0;
-		frame.getContentPane().add(lPanel, gbc_panel);
+		
+		cards = new JPanel();
+        cards.setLayout(new CardLayout());  
+        frame.getContentPane().add(cards,gbc_panel);
+		
+		lPanel = new JLayeredPane();
+		//frame.getContentPane().add(lPanel, gbc_panel);
 		lPanel.setPreferredSize(frame.getSize());
+		
+		lPanelCorr = new JLayeredPane();
+		//frame.getContentPane().add(lPanelCorr, gbc_panel);
+		lPanelCorr.setPreferredSize(frame.getSize());
+		
+		  
+        cards.add(lPanel, "Normale Ansicht");
+        cards.add(lPanelCorr, "Korrektur");  
+        
+        cl = (CardLayout) cards.getLayout();
+        cl.show(cards, "Normale Ansicht");
 	}
+	
 	
 	public void loadImagePaths(){
 		 // array of supported extensions (use a List if you prefer)
 	    final String[] EXTENSIONS = new String[]{
-	        "jpg" // Nur jpg wird momentan akzeptiert
+	      "JPG",  "jpg" // Nur jpg wird momentan akzeptiert
 	    };
 	    
 	    //Liste zum Speichern der Bildpfade der sourcedir
@@ -281,9 +302,11 @@ public class LabelIt implements KeyListener {
         	break;
         case  KeyEvent.VK_BACK_SPACE:
         	if(last3.size()!=0) {
-        		refList.add(last3.removeLast());
+        		//last3 in korrektur "lPanelCorr" einfügen und anzeigen lassen
+        		//load and display Files from last3
+        		cl.show(cards, "Korrektur");
         	}
-        	
+        	break;
         default:
         	break;
      }
@@ -362,9 +385,8 @@ public class LabelIt implements KeyListener {
 
             reader.setInput(input);
             String value = getTextEntry(reader.getImageMetadata(0), "label");
-            String value2 = getTextEntry(reader.getImageMetadata(0), "Traktor");
             
-            System.out.println("value: " + value+"\tvalue2: " + value2);
+            System.out.println("value: " + value);
         }
 	}
 
@@ -430,8 +452,7 @@ public class LabelIt implements KeyListener {
 	}
 	
 
-	//add Threading here
-	//parameter und Funktion noch ergänzen
+	//Threading
 	class ImageTask extends SwingWorker<List<BufferedImage>, BufferedImage>{
 
 		private int action;
@@ -497,7 +518,7 @@ public class LabelIt implements KeyListener {
 		
 	}
 	
-	public File writeMeta(File imageDir, String label) {
+	public File writeMeta(File imageDir, String label) { //synchronized ja/nein?
 			File out = null;
 	        String filePath = null;
 	        
@@ -544,7 +565,7 @@ public class LabelIt implements KeyListener {
 		        comNode.setUserObject(new String(label).getBytes("ISO-8859-1"));
 		        meta.setFromTree("javax_imageio_jpeg_image_1.0", tree);
 		        
-		     // set JPG params
+		        // set JPG params
 		        JPEGImageWriteParam param = new JPEGImageWriteParam(Locale.getDefault());
 		        param.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
 		        param.setCompressionQuality(1);
@@ -554,6 +575,8 @@ public class LabelIt implements KeyListener {
 		        IIOImage iioimage = new IIOImage(img, null, meta);
 		        writer.setOutput(ImageIO.createImageOutputStream(out));
 		        writer.write(null, iioimage, param);
+		        
+		        //Put into last3
 		        last3.add(out);
 		        if(last3.size()>3) {
 		        	last3.removeFirst();
@@ -571,6 +594,8 @@ public class LabelIt implements KeyListener {
 	        
 	        writer.dispose();
 	        reader.dispose();
+	        
+	        //Delete origin
 	        Path path = Paths.get(imageDir.getAbsolutePath());
 	        try {
 				Files.delete(path);
