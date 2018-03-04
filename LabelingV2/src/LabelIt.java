@@ -603,7 +603,7 @@ public class LabelIt implements KeyListener {
 						 labellist.add(jl);
 							jl.setSize(frame.getSize());
 							Image scaledImage = image.getScaledInstance(-1, frame.getHeight(),Image.SCALE_DEFAULT);
-							jl.setIcon(new ImageIcon(image));
+							jl.setIcon(new ImageIcon(scaledImage));
 							jl.setHorizontalAlignment(JLabel.CENTER);
 							lPanel.add(jl,null,-1);
 						}catch (Exception e) {
