@@ -13,6 +13,7 @@ import javax.imageio.plugins.jpeg.JPEGImageWriteParam;
 import javax.imageio.stream.FileImageInputStream;
 import javax.imageio.stream.ImageInputStream;
 import javax.imageio.stream.ImageOutputStream;
+import javax.swing.BorderFactory;
 import javax.swing.ImageIcon;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
@@ -29,15 +30,18 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FilenameFilter;
 import java.io.IOException;
+import java.nio.file.FileSystemException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
 
 import javax.swing.SwingWorker;
+import javax.swing.border.Border;
 
 import org.w3c.dom.Element;
 import org.w3c.dom.NamedNodeMap;
@@ -46,7 +50,9 @@ import org.w3c.dom.NodeList;
 
 
 import java.awt.GridBagConstraints;
+import java.awt.BasicStroke;
 import java.awt.CardLayout;
+import java.awt.Color;
 import java.awt.Dimension;
 
 
@@ -58,10 +64,11 @@ public class LabelIt implements KeyListener {
 	private static File outputdirN;
 	private static File outputdirT;
 	private LinkedList<File> refList;
-	private LinkedList<File> last3;
+	private LinkedList<Pair> last3;
 	private LinkedList<File> refListTemp;
 	private LinkedList<BufferedImage> imgList;
 	private LinkedList<JLabel> labellist;
+	private LinkedList<JLabel> labellistLast3;
 	private int index;
 	private int batchsize=25; //Die Größe der Bilderbatches die in den Arbeitsspeicher geladen und dann angezeigt werden
 	
@@ -71,6 +78,7 @@ public class LabelIt implements KeyListener {
 	private JLayeredPane lPanel;
 	private JLayeredPane lPanelCorr;
 	private CardLayout cl;
+	private boolean normalMode;
 
 	/**
 	 * Launch the application.
@@ -108,7 +116,7 @@ public class LabelIt implements KeyListener {
 		labellist = new LinkedList<JLabel>();
 		imgList = new LinkedList<BufferedImage>();
 		refListTemp = new LinkedList<File>();
-		last3 = new LinkedList<File>();
+		last3 = new LinkedList<Pair>();
 		
 		//File Chooser
 		JFileChooser chooser = new JFileChooser();
@@ -151,23 +159,24 @@ public class LabelIt implements KeyListener {
 		gbc_panel.gridy = 0;
 		
 		cards = new JPanel();
-        cards.setLayout(new CardLayout());  
+        cards.setLayout(new CardLayout());
+        cards.setBorder(BorderFactory.createLineBorder(Color.BLACK, 5));
         frame.getContentPane().add(cards,gbc_panel);
+        
 		
 		lPanel = new JLayeredPane();
-		//frame.getContentPane().add(lPanel, gbc_panel);
 		lPanel.setPreferredSize(frame.getSize());
 		
 		lPanelCorr = new JLayeredPane();
-		//frame.getContentPane().add(lPanelCorr, gbc_panel);
 		lPanelCorr.setPreferredSize(frame.getSize());
 		
 		  
-        cards.add(lPanel, "Normale Ansicht");
+        cards.add(lPanel, "Normal");
         cards.add(lPanelCorr, "Korrektur");  
         
         cl = (CardLayout) cards.getLayout();
-        cl.show(cards, "Normale Ansicht");
+        cl.show(cards, "Normal");
+        normalMode=true;
 	}
 	
 	
@@ -201,6 +210,7 @@ public class LabelIt implements KeyListener {
 	    System.out.println(refList);
 	}
 	
+	//Warum BufferedImage speichern?! Lieber wie in displayLast3() Methode machen /// Oder als ImageIcon speichern <- auch gut
 	public void loadImages(){
 		int initIndex = index;
 		
@@ -233,6 +243,32 @@ public class LabelIt implements KeyListener {
 			
 		}
 	}
+	
+	public void displayLast3(){
+		lPanelCorr.removeAll();
+		lPanelCorr.revalidate();
+    	lPanelCorr.repaint();
+		labellistLast3 = new LinkedList<JLabel>();
+		System.out.println("Die letzen 3 Bilder "+ last3);
+	
+		for(int i=0;i<last3.size();i++){ 
+			labellistLast3.add(new JLabel());
+			try{
+
+				labellistLast3.get(i).setSize(frame.getSize());
+				BufferedImage img = ImageIO.read(last3.get(i).getFile());
+				labellistLast3.get(i).setIcon(new ImageIcon(img));
+				lPanelCorr.add(labellistLast3.get(i),null, 0);
+				
+			}catch (Exception e) {
+				System.out.println("Vermutlich nen leerer Imagecontainer DU HUND!");
+			}
+			
+		}
+		
+		Collections.reverse(labellistLast3);
+		
+	}
 
 	@Override
 	public void keyPressed(KeyEvent arg0) {
@@ -247,66 +283,156 @@ public class LabelIt implements KeyListener {
 		
 		switch( keyCode ) { 
         case KeyEvent.VK_LEFT:
-        	if(labellist.size()>0 && refListTemp.size()!=0){ //Warum reflist!=0?!!!!! nochmal anschauen  p.s. ich glaube es funktioniert
-        		lPanel.remove(labellist.removeFirst());
-        		System.out.println(refListTemp.getFirst());
-        		//negativsample -> Metadaten eintragen
-        		(new ImageTask(0,"n",refListTemp.getFirst())).execute();
-        		refListTemp.removeFirst();
-        		imgList.getFirst().flush();
-        		imgList.removeFirst();
-            	lPanel.revalidate();
-            	lPanel.repaint();
-            	System.out.println("Negative.");
-            	
-        	}else{
-        		System.out.println("Das war das letzte Bild");
-        		System.out.println(labellist.size());
+        	if(normalMode==true) {
+        		if(labellist.size()>0 && refListTemp.size()!=0){ //Warum reflist!=0?!!!!! nochmal anschauen  p.s. ich glaube es funktioniert
+            		lPanel.remove(labellist.removeFirst());
+            		System.out.println(refListTemp.getFirst());
+            		//negativsample -> Metadaten eintragen
+            		(new ImageTask(0,"n",refListTemp.getFirst())).execute();
+            		refListTemp.removeFirst();
+            		imgList.getFirst().flush();
+            		imgList.removeFirst();
+                	lPanel.revalidate();
+                	lPanel.repaint();
+                	System.out.println("Negative.");
+                	
+            	}else{
+            		System.out.println("Das war das letzte Bild");
+            		System.out.println(labellist.size());
+            		cards.setBackground(Color.GREEN);
+            	}
+                break;
+        	}else { //Korrekturmodus
+        		if(last3.size()>0) {
+        			System.out.println("Korrekturmodus");
+        			if(!last3.getLast().getMetaValue().equals("n")) {
+        				(new ImageTask(2,"n",last3.getLast().getFile())).execute();
+        			}
+        			
+            		lPanelCorr.remove(labellistLast3.removeFirst());
+            		last3.removeLast();
+            		
+            		lPanelCorr.revalidate();
+                	lPanelCorr.repaint();
+            		
+        		}else{
+            		System.out.println("Das war das letzte Bild");
+            		//displayLastImageMessageOrSth();
+            		System.out.println(last3.size());
+            		
+            		cards.setBorder(BorderFactory.createLineBorder(Color.BLACK, 5));
+            		cl.show(cards, "Normal");
+            		normalMode=true;
+            	}	
+        		break;
         	}
-            break;
+        	
         case KeyEvent.VK_RIGHT:
-        	if(labellist.size()>0  && refListTemp.size()!=0){ //Warum reflist!=0?!!!!! nochmal anschauen p.s. ich glaube es funktioniert
-        		
-        		lPanel.remove(labellist.removeFirst());
-        		System.out.println(refListTemp.getFirst());
-            	//positivsample -> Metadaten eintragen
-        		(new ImageTask(0,"p",refListTemp.getFirst())).execute();				
-        		refListTemp.removeFirst();
-        		imgList.getFirst().flush();
-            	lPanel.revalidate();
-            	lPanel.repaint();
-            	System.out.println("Positive.");
-        	}else{
-        		System.out.println("Das war das letzte Bild");
-        		System.out.println(labellist.size());
-        	}	
-            break;
-        case KeyEvent.VK_SPACE:
-
-        	if(labellist.size()>0  && refListTemp.size()!=0){ //Warum reflist!=0?!!!!! nochmal anschauen p.s. ich glaube es funktioniert
-        		
-        		lPanel.remove(labellist.removeFirst());
-        		System.out.println(refListTemp.getFirst());
-            	//trash -> Metadaten eintragen
-        		(new ImageTask(0,"t",refListTemp.getFirst())).execute();
-        		refListTemp.removeFirst();
-        		imgList.getFirst().flush();
-            	lPanel.revalidate();
-            	lPanel.repaint();
-            	System.out.println("Trash.");
-        	}else{
-        		System.out.println("Das war das letzte Bild");
-        		//displayLastImageMessageOrSth();
-        		System.out.println(labellist.size());
-        	}	
-        	break;
-        case  KeyEvent.VK_BACK_SPACE:
-        	if(last3.size()!=0) {
-        		//last3 in korrektur "lPanelCorr" einfügen und anzeigen lassen
-        		//load and display Files from last3
-        		cl.show(cards, "Korrektur");
+        	if(normalMode==true) {
+        		if(labellist.size()>0  && refListTemp.size()!=0){ //Warum reflist!=0?!!!!! nochmal anschauen p.s. ich glaube es funktioniert
+            		
+            		lPanel.remove(labellist.removeFirst());
+            		System.out.println(refListTemp.getFirst());
+                	//positivsample -> Metadaten eintragen
+            		(new ImageTask(0,"p",refListTemp.getFirst())).execute();				
+            		refListTemp.removeFirst();
+            		imgList.getFirst().flush();
+                	lPanel.revalidate();
+                	lPanel.repaint();
+                	System.out.println("Positive.");
+            	}else{
+            		System.out.println("Das war das letzte Bild");
+            		System.out.println(labellist.size());
+            		cards.setBackground(Color.GREEN);
+            	}	
+                break;
+        	}else { //Korrekturmodus
+        		if(last3.size()>0) {
+        			System.out.println("Korrekturmodus");
+        			if(!last3.getLast().getMetaValue().equals("p")) {
+        				(new ImageTask(2,"p",last3.getLast().getFile())).execute();
+        			}
+        			
+            		lPanelCorr.remove(labellistLast3.removeFirst());
+            		last3.removeLast();
+            		
+            		lPanelCorr.revalidate();
+                	lPanelCorr.repaint();
+            		
+        		}else{
+            		System.out.println("Das war das letzte Bild");
+            		//displayLastImageMessageOrSth();
+            		System.out.println(last3.size());
+            		
+            		cards.setBorder(BorderFactory.createLineBorder(Color.BLACK, 5));
+            		cl.show(cards, "Normal");
+            		normalMode=true;
+            	}	
+        		break;
         	}
-        	break;
+        	
+            
+        case KeyEvent.VK_SPACE:
+        	if(normalMode==true) {
+        		if(labellist.size()>0  && refListTemp.size()!=0){ //Warum reflist!=0?!!!!! nochmal anschauen p.s. ich glaube es funktioniert
+            		
+            		lPanel.remove(labellist.removeFirst());
+            		System.out.println(refListTemp.getFirst());
+                	//trash -> Metadaten eintragen
+            		(new ImageTask(0,"t",refListTemp.getFirst())).execute();
+            		refListTemp.removeFirst();
+            		imgList.getFirst().flush();
+                	lPanel.revalidate();
+                	lPanel.repaint();
+                	System.out.println("Trash.");
+            	}else{
+            		System.out.println("Das war das letzte Bild");
+            		cards.setBackground(Color.GREEN);
+            		System.out.println(labellist.size());
+            	}	
+            	break;
+        	}else { //Korrekturmodus
+        		if(last3.size()>0) {
+        			System.out.println("Korrekturmodus");
+        			if(!last3.getLast().getMetaValue().equals("t")) {
+        				(new ImageTask(2,"t",last3.getLast().getFile())).execute();
+        			}
+        			
+            		lPanelCorr.remove(labellistLast3.removeFirst());
+            		last3.removeLast();
+            		
+            		lPanelCorr.revalidate();
+                	lPanelCorr.repaint();
+            		
+        		}else{
+            		System.out.println("Das war das letzte Bild");
+            		//displayLastImageMessageOrSth();
+            		System.out.println(last3.size());
+            		
+            		cards.setBorder(BorderFactory.createLineBorder(Color.BLACK, 5));
+            		cl.show(cards, "Normal");
+            		normalMode=true;
+            	}	
+        		break;
+        	}
+
+        	
+        case  KeyEvent.VK_BACK_SPACE:
+        	if(normalMode==true) {
+        		if(last3.size()!=0) {
+            		cards.setBorder(BorderFactory.createLineBorder(Color.RED, 5));
+            		cl.show(cards, "Korrektur");
+            		displayLast3();
+            		normalMode =false;
+            	}
+            	break;
+        	}else {
+        		cards.setBorder(BorderFactory.createLineBorder(Color.BLACK, 5));
+        		cl.show(cards, "Normal");
+        		normalMode=true;
+        	}
+        	
+        	
         default:
         	break;
      }
@@ -316,6 +442,7 @@ public class LabelIt implements KeyListener {
 			System.gc();
 			(new ImageTask(1,null,null)).execute();
 		}
+
 	}
 
 	@Override
@@ -470,6 +597,7 @@ public class LabelIt implements KeyListener {
 		@Override
 		protected List<BufferedImage> doInBackground() throws Exception {
 			
+			//Bilder nachladen
 			if(action==1) {
 				int initIndex = index;
 				
@@ -493,6 +621,7 @@ public class LabelIt implements KeyListener {
 				
 				File out = writeMeta(ref,label); //<- Methode für jpg
 				readMeta(out); //<- Methode für jpg
+				
 				return null;
 			}
 			
@@ -518,7 +647,7 @@ public class LabelIt implements KeyListener {
 		
 	}
 	
-	public File writeMeta(File imageDir, String label) { //synchronized ja/nein?
+	public synchronized File writeMeta(File imageDir, String label) { //synchronized ja/nein?
 			File out = null;
 	        String filePath = null;
 	        
@@ -541,6 +670,9 @@ public class LabelIt implements KeyListener {
 	        	System.out.println("Fehler im verschieben der Bilder (writeMetadata()).");
 	        	break;
 	        }
+	        	
+	        
+	        
 		
 	        ImageWriter writer = ImageIO.getImageWritersBySuffix("jpeg").next();
 	        ImageReader reader = ImageIO.getImageReader(writer);
@@ -573,14 +705,20 @@ public class LabelIt implements KeyListener {
 
 		        // save the image with new comment inside
 		        IIOImage iioimage = new IIOImage(img, null, meta);
-		        writer.setOutput(ImageIO.createImageOutputStream(out));
+		        ImageInputStream output = ImageIO.createImageOutputStream(out);
+		        writer.setOutput(output);
 		        writer.write(null, iioimage, param);
+		        output.close();
 		        
 		        //Put into last3
-		        last3.add(out);
-		        if(last3.size()>3) {
-		        	last3.removeFirst();
+		        if(normalMode == true) {
+		        	 Pair pair = new Pair(out, label);
+		        	 last3.add(pair);
+				        if(last3.size()>3) {
+				        	last3.removeFirst();
+				        }
 		        }
+		       
 		        
 		        
 		        
@@ -599,7 +737,7 @@ public class LabelIt implements KeyListener {
 	        Path path = Paths.get(imageDir.getAbsolutePath());
 	        try {
 				Files.delete(path);
-			} catch (IOException e) {
+			} catch (Exception e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
@@ -623,7 +761,7 @@ public class LabelIt implements KeyListener {
 		    		int length = map.getLength();
 		    		for (int i = 0; i < length; i++) {
 		    			Node attr = map.item(i);
-		    			System.out.print(attr.getNodeName() + "=" + attr.getNodeValue());
+		    			System.out.println(attr.getNodeName() + "=" + attr.getNodeValue());
 		    		}
 		    	}
 		        
