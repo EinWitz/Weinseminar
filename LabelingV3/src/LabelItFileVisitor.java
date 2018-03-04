@@ -30,9 +30,13 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FilenameFilter;
 import java.io.IOException;
+import java.nio.charset.Charset;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
@@ -52,7 +56,8 @@ import java.awt.Color;
 import java.awt.Dimension;
 
 
-public class LabelIt implements KeyListener {
+
+public class LabelItFileVisitor implements KeyListener {
 	
 	private static File sourcedir;
 	private static File outputdirP;
@@ -83,7 +88,7 @@ public class LabelIt implements KeyListener {
 		EventQueue.invokeLater(new Runnable() {
 			public void run() {
 				try {
-					LabelIt window = new LabelIt();
+					LabelItFileVisitor window = new LabelItFileVisitor();
 					window.frame.setVisible(true);
 				} catch (Exception e) {
 					e.printStackTrace();
@@ -95,7 +100,7 @@ public class LabelIt implements KeyListener {
 	/**
 	 * Create the application.
 	 */
-	public LabelIt() {
+	public LabelItFileVisitor() {
 		initialize();
 		loadImagePaths();
 		loadImages();
@@ -231,33 +236,24 @@ public class LabelIt implements KeyListener {
 		
 	}
 	
-	//listFiles() durch FileVisitor ersetzen um große Verzeichnisse handlen zu können
+	//Todo: concurrent hashmap mit dateien die im thread liegen. Wenn keine elemente mehr in refList -> walkfiletree() -> skipwert (+hashmap.size()) um zu übespringen was schon in reflist ist -> Threads mit while(..) sleep() blockieren solange loadingPaths==true
+	//File Visitor
 	public void loadImagePaths(){
-		 // array of supported extensions (use a List if you prefer)
-	    final String[] EXTENSIONS = new String[]{
-	      "JPG",  "jpg" // Nur jpg wird momentan akzeptiert
-	    };
-	    
-	   
-	    // filter to identify images based on their extensions
-	    final FilenameFilter IMAGE_FILTER = new FilenameFilter() {
-
-	        @Override
-	        public boolean accept(final File dir, final String name) {
-	            for (final String ext : EXTENSIONS) {
-	                if (name.endsWith("." + ext)) {
-	                    return (true);
-	                }
-	            }
-	            return (false);
-	        }
-	    };
-	    
-	    for (final File f : sourcedir.listFiles(IMAGE_FILTER)) {
-           refList.add(f);
-	    }
-	    
-	    System.out.println(refList);
+		Path startPath = sourcedir.toPath();
+        try {
+			Files.walkFileTree(startPath, new SimpleFileVisitor<Path>() { 
+			    @Override
+			    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)
+			        throws IOException
+			    {
+			        
+			        return FileVisitResult.CONTINUE;
+			    }
+			});
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
 	
 	
@@ -527,7 +523,7 @@ public class LabelIt implements KeyListener {
 		String filePath3 = sourcedir.getParent()+File.separatorChar+"trash";
 		outputdirT = new File(filePath3);
 		
-		
+		System.out.println(outputdirP);
 		//Verzeichnisse erstellen
 		if(!outputdirP.exists()) {
 			outputdirP.mkdirs();
