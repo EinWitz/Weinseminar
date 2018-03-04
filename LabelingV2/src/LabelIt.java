@@ -5,14 +5,10 @@ import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
 import javax.imageio.ImageWriteParam;
 import javax.imageio.ImageWriter;
-import javax.imageio.metadata.IIOInvalidTreeException;
 import javax.imageio.metadata.IIOMetadata;
-import javax.imageio.metadata.IIOMetadataFormatImpl;
 import javax.imageio.metadata.IIOMetadataNode;
 import javax.imageio.plugins.jpeg.JPEGImageWriteParam;
-import javax.imageio.stream.FileImageInputStream;
 import javax.imageio.stream.ImageInputStream;
-import javax.imageio.stream.ImageOutputStream;
 import javax.swing.BorderFactory;
 import javax.swing.ImageIcon;
 import javax.swing.JFileChooser;
@@ -22,8 +18,12 @@ import javax.swing.JLayeredPane;
 import javax.swing.JPanel;
 
 import java.awt.GridBagLayout;
+import java.awt.Image;
+import java.awt.Toolkit;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
 import java.awt.image.RenderedImage;
 import java.io.File;
@@ -34,7 +34,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
@@ -68,6 +67,7 @@ public class LabelIt implements KeyListener {
 	private LinkedList<JLabel> labellistLast3;
 	private int index;
 	private int batchsize=25; //Die Größe der Bilderbatches die in den Arbeitsspeicher geladen und dann angezeigt werden
+	private LinkedList<Path> deletePaths;
 	
 
 	private JPanel cards;
@@ -114,6 +114,10 @@ public class LabelIt implements KeyListener {
 		imgList = new LinkedList<BufferedImage>();
 		refListTemp = new LinkedList<File>();
 		last3 = new LinkedList<Pair>();
+		deletePaths = new LinkedList<Path>();
+		
+		//Liste zum Speichern der Bildpfade der sourcedir
+	    refList = new LinkedList<File>();
 		
 		//File Chooser
 		JFileChooser chooser = new JFileChooser();
@@ -139,9 +143,22 @@ public class LabelIt implements KeyListener {
 		//make output-directories
 		makeOutputDirectories();
 		
+		Dimension dim = Toolkit.getDefaultToolkit().getScreenSize();
+		
+		
 		frame = new JFrame();
-		frame.setBounds(100, 100, 400, 400);
-		frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+		frame.getContentPane().setPreferredSize(dim);
+		frame.setExtendedState(frame.getExtendedState() | JFrame.MAXIMIZED_BOTH);
+		frame.setBounds(100, 100, (int)dim.getWidth(), (int)dim.getHeight());
+		frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+		
+		 frame.addWindowListener(new WindowAdapter() {
+		        @Override
+		        public void windowClosing(WindowEvent event) {
+		            exitProcedure();
+		        }
+		    });
+		
 		GridBagLayout gridBagLayout = new GridBagLayout();
 		gridBagLayout.columnWidths = new int[]{0, 0};
 		gridBagLayout.rowHeights = new int[]{0, 0};
@@ -176,16 +193,53 @@ public class LabelIt implements KeyListener {
         normalMode=true;
 	}
 	
+	public void exitProcedure() {
+		frame.dispose();
+		
+		int repeats = 0;
+		while(!deletePaths.isEmpty() && repeats <10) {
+			deleteRemainingPaths();
+			if(!deletePaths.isEmpty()) {
+				try {
+					Thread.sleep(3000);
+				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+			
+			repeats++;
+			System.out.println("Paths löschen wiederholen: "+repeats);
+		}
+		
+	    System.exit(0);
+	}
 	
+	public void deleteRemainingPaths() {
+		int index = deletePaths.size();
+		for(int i=0;i<index;i++) {
+			Path path = deletePaths.getFirst();
+	        try {
+				Files.delete(path);
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				System.gc();
+				System.out.println("Pfade konnten nicht vollständig gelösch werden");
+				deletePaths.add(deletePaths.getFirst());
+			}
+	        deletePaths.removeFirst();
+		}
+		
+	}
+	
+	//listFiles() durch FileVisitor ersetzen um große Verzeichnisse handlen zu können
 	public void loadImagePaths(){
 		 // array of supported extensions (use a List if you prefer)
 	    final String[] EXTENSIONS = new String[]{
 	      "JPG",  "jpg" // Nur jpg wird momentan akzeptiert
 	    };
 	    
-	    //Liste zum Speichern der Bildpfade der sourcedir
-	    refList = new LinkedList<File>();
-	    
+	   
 	    // filter to identify images based on their extensions
 	    final FilenameFilter IMAGE_FILTER = new FilenameFilter() {
 
@@ -206,6 +260,7 @@ public class LabelIt implements KeyListener {
 	    
 	    System.out.println(refList);
 	}
+	
 	
 	//Warum BufferedImage speichern?! Lieber wie in displayLast3() Methode machen /// Oder als ImageIcon speichern <- auch gut
 	public void loadImages(){
@@ -231,9 +286,11 @@ public class LabelIt implements KeyListener {
 			labellist.add(new JLabel());
 			try{
 				labellist.get(i).setSize(frame.getSize());
-				labellist.get(i).setIcon(new ImageIcon(imgList.get(i)));
-				lPanel.add(labellist.get(i),null,-1);
+				Image scaledImage = imgList.get(i).getScaledInstance(-1, frame.getHeight(),Image.SCALE_DEFAULT);
+				labellist.get(i).setIcon(new ImageIcon(scaledImage));
+				labellist.get(i).setHorizontalAlignment(JLabel.CENTER);
 				//labellist.get(i).setVisible(true);
+				lPanel.add(labellist.get(i),null,-1);
 			}catch (Exception e) {
 				System.out.println("Vermutlich nen leerer Imagecontainer DU HUND!");
 			}
@@ -246,7 +303,6 @@ public class LabelIt implements KeyListener {
 		lPanelCorr.revalidate();
     	lPanelCorr.repaint();
 		labellistLast3 = new LinkedList<JLabel>();
-		System.out.println("Die letzen 3 Bilder "+ last3);
 	
 		for(int i=0;i<last3.size();i++){ 
 			labellistLast3.add(new JLabel());
@@ -254,7 +310,9 @@ public class LabelIt implements KeyListener {
 
 				labellistLast3.get(i).setSize(frame.getSize());
 				BufferedImage img = ImageIO.read(last3.get(i).getFile());
-				labellistLast3.get(i).setIcon(new ImageIcon(img));
+				Image scaledImage = img.getScaledInstance(-1, frame.getHeight(),Image.SCALE_DEFAULT);
+				labellistLast3.get(i).setIcon(new ImageIcon(scaledImage));
+				labellistLast3.get(i).setHorizontalAlignment(JLabel.CENTER);
 				lPanelCorr.add(labellistLast3.get(i),null, 0);
 				
 			}catch (Exception e) {
@@ -291,6 +349,8 @@ public class LabelIt implements KeyListener {
             		imgList.removeFirst();
                 	lPanel.revalidate();
                 	lPanel.repaint();
+                	
+                	
                 	System.out.println("Negative.");
                 	
             	}else{
@@ -331,12 +391,14 @@ public class LabelIt implements KeyListener {
             		lPanel.remove(labellist.removeFirst());
             		System.out.println(refListTemp.getFirst());
                 	//positivsample -> Metadaten eintragen
-            		(new ImageTask(0,"p",refListTemp.getFirst())).execute();				
+            		(new ImageTask(0,"p",refListTemp.getFirst())).execute();			
             		refListTemp.removeFirst();
             		imgList.getFirst().flush();
                 	lPanel.revalidate();
                 	lPanel.repaint();
                 	System.out.println("Positive.");
+                	
+                	
             	}else{
             		System.out.println("Das war das letzte Bild");
             		System.out.println(labellist.size());
@@ -382,6 +444,8 @@ public class LabelIt implements KeyListener {
                 	lPanel.revalidate();
                 	lPanel.repaint();
                 	System.out.println("Trash.");
+                	
+                	
             	}else{
             		System.out.println("Das war das letzte Bild");
             		cards.setBackground(Color.GREEN);
@@ -449,114 +513,19 @@ public class LabelIt implements KeyListener {
 	}
 	
 	
-	//Metadaten-Funktionalitäten
-	public File writeMetadata(String label , File imageDir) throws IOException {
-        File in = imageDir;
-        File out = null;
-        String filePath = null;
-        
-        //Create output path for Images
-        switch(label) {
-        case "p":
-        	filePath = outputdirP.getAbsolutePath()+File.separatorChar+imageDir.getName();
-        	out = new File(filePath);
-        	break;
-        case "n":
-        	filePath = outputdirN.getAbsolutePath()+File.separatorChar+imageDir.getName();
-        	out = new File(filePath);
-        	break;
-        case "t":
-        	filePath = outputdirT.getAbsolutePath()+File.separatorChar+imageDir.getName();
-        	out = new File(filePath);
-        	break;
-        default:
-        	System.out.println("Fehler im verschieben der Bilder (writeMetadata()).");
-        	break;
-        }
-        
 
-        System.out.println("Change Metadata of Image in: " + in.getAbsolutePath());
-
-        try (ImageInputStream input = ImageIO.createImageInputStream(in);
-             ImageOutputStream output = ImageIO.createImageOutputStream(out)) {
-
-            Iterator<ImageReader> readers = ImageIO.getImageReaders(input);
-            ImageReader reader = readers.next(); // TODO: Validate that there are readers
-
-            reader.setInput(input);
-            IIOImage image = reader.readAll(0, null);
-
-            addTextEntry(image.getMetadata(), "label", label); //Hier lässt sich metadateneintrag machen
-            addTextEntry(image.getMetadata(), "Traktor", "test"); 
-            
-            ImageWriter writer = ImageIO.getImageWriter(reader); // TODO: Validate that there are writers
-            writer.setOutput(output);
-            writer.write(image);
-        }
-        
-        //Delete original image
-
-        return out;
-    }
- 
- 	
-	public void readMetadata(File imageDir) throws IOException{
-		File in = imageDir;
-	 
-		try (ImageInputStream input = ImageIO.createImageInputStream(in)) {
-            Iterator<ImageReader> readers = ImageIO.getImageReaders(input);
-            ImageReader reader = readers.next(); // TODO: Validate that there are readers
-
-            reader.setInput(input);
-            String value = getTextEntry(reader.getImageMetadata(0), "label");
-            
-            System.out.println("value: " + value);
-        }
-	}
-
-    
-	private static void addTextEntry(final IIOMetadata metadata, final String key, final String value) throws IIOInvalidTreeException {
-		IIOMetadataNode textEntry = new IIOMetadataNode("TextEntry");
-        textEntry.setAttribute("keyword", key);
-        textEntry.setAttribute("value", value);
-
-        IIOMetadataNode text = new IIOMetadataNode("Text");
-        text.appendChild(textEntry);
-
-        IIOMetadataNode root = new IIOMetadataNode(IIOMetadataFormatImpl.standardMetadataFormatName);
-        root.appendChild(text);
-
-        metadata.mergeTree(IIOMetadataFormatImpl.standardMetadataFormatName, root);
-    
-	}
-
-    
-	private static String getTextEntry(final IIOMetadata metadata, final String key) {
-        IIOMetadataNode root = (IIOMetadataNode) metadata.getAsTree(IIOMetadataFormatImpl.standardMetadataFormatName);
-        NodeList entries = root.getElementsByTagName("TextEntry");
-
-        for (int i = 0; i < entries.getLength(); i++) {
-            IIOMetadataNode node = (IIOMetadataNode) entries.item(i);
-            if (node.getAttribute("keyword").equals(key)) {
-                return node.getAttribute("value");
-            }
-        }
-
-        return null;
-    
-	}
 	
 	public void makeOutputDirectories() {
 		//Ordner für positive labels
-		String filePath = sourcedir.getAbsolutePath()+File.separatorChar+"positive";
+		String filePath = sourcedir.getParent()+File.separatorChar+"positive";
 		outputdirP = new File(filePath);
 		
 		//Ordner für negative labels
-		String filePath2 = sourcedir.getAbsolutePath()+File.separatorChar+"negative";
+		String filePath2 = sourcedir.getParent()+File.separatorChar+"negative";
 		outputdirN = new File(filePath2);
 		
 		//Ordner für den trash
-		String filePath3 = sourcedir.getAbsolutePath()+File.separatorChar+"trash";
+		String filePath3 = sourcedir.getParent()+File.separatorChar+"trash";
 		outputdirT = new File(filePath3);
 		
 		System.out.println(outputdirP);
@@ -598,13 +567,13 @@ public class LabelIt implements KeyListener {
 			if(action==1) {
 				int initIndex = index;
 				
-				 for (int i=initIndex; i<initIndex+batchsize;i++) {
+				 for (int i=0; i< initIndex+batchsize && i<refList.size();i++) {
 			            try {
 			                imgList.add(ImageIO.read(refList.get(index)));
 			                publish(imgList.getLast());
 			                refListTemp.add(refList.get(index));
 			                System.out.println("image: " + refList.get(index).getName());
-			                index++;
+			                
 			            } catch (final IOException e) {
 			            	System.out.println("Das waren alle Elemente.");
 			                // handle errors here
@@ -647,7 +616,7 @@ public class LabelIt implements KeyListener {
 	public synchronized File writeMeta(File imageDir, String label) { //synchronized ja/nein?
 			File out = null;
 	        String filePath = null;
-	        
+	       
 	        //Create output path for Images
 	        //Split before first ',' to get value p,n or t
 	        switch(label) {
@@ -730,6 +699,7 @@ public class LabelIt implements KeyListener {
 	        writer.dispose();
 	        reader.dispose();
 	        
+	   
 	        //Delete origin
 	        Path path = Paths.get(imageDir.getAbsolutePath());
 	        try {
@@ -737,6 +707,9 @@ public class LabelIt implements KeyListener {
 			} catch (Exception e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
+				//Pfade zum löschen speichern (ab 500 oder so löschen)
+				deletePaths.add(path);
+				
 			}
 	        
 	        return out;
@@ -749,8 +722,10 @@ public class LabelIt implements KeyListener {
 	        ImageReader reader = ImageIO.getImageReader(writer);
 
 	        try {
-				reader.setInput(new FileImageInputStream(file));
+	        	ImageInputStream input = ImageIO.createImageInputStream(file);
+				reader.setInput(input);
 		        IIOMetadata meta = reader.getImageMetadata(0);
+		        input.close();
 		        Element tree = (Element) meta.getAsTree("javax_imageio_jpeg_image_1.0");
 		        IIOMetadataNode comNode = (IIOMetadataNode)tree.getElementsByTagName("com").item(0);
 		        NamedNodeMap map = comNode.getAttributes();
@@ -768,6 +743,104 @@ public class LabelIt implements KeyListener {
 	        writer.dispose();
 	        reader.dispose();
 	}
+	
+	
+//	//Metadaten-Funktionalitäten
+//	public File writeMetadata(String label , File imageDir) throws IOException {
+//        File in = imageDir;
+//        File out = null;
+//        String filePath = null;
+//        
+//        //Create output path for Images
+//        switch(label) {
+//        case "p":
+//        	filePath = outputdirP.getAbsolutePath()+File.separatorChar+imageDir.getName();
+//        	out = new File(filePath);
+//        	break;
+//        case "n":
+//        	filePath = outputdirN.getAbsolutePath()+File.separatorChar+imageDir.getName();
+//        	out = new File(filePath);
+//        	break;
+//        case "t":
+//        	filePath = outputdirT.getAbsolutePath()+File.separatorChar+imageDir.getName();
+//        	out = new File(filePath);
+//        	break;
+//        default:
+//        	System.out.println("Fehler im verschieben der Bilder (writeMetadata()).");
+//        	break;
+//        }
+//        
+//
+//        System.out.println("Change Metadata of Image in: " + in.getAbsolutePath());
+//
+//        try (ImageInputStream input = ImageIO.createImageInputStream(in);
+//             ImageOutputStream output = ImageIO.createImageOutputStream(out)) {
+//
+//            Iterator<ImageReader> readers = ImageIO.getImageReaders(input);
+//            ImageReader reader = readers.next(); // TODO: Validate that there are readers
+//
+//            reader.setInput(input);
+//            IIOImage image = reader.readAll(0, null);
+//
+//            addTextEntry(image.getMetadata(), "label", label); //Hier lässt sich metadateneintrag machen
+//            addTextEntry(image.getMetadata(), "Traktor", "test"); 
+//            
+//            ImageWriter writer = ImageIO.getImageWriter(reader); // TODO: Validate that there are writers
+//            writer.setOutput(output);
+//            writer.write(image);
+//        }
+//        
+//        //Delete original image
+//
+//        return out;
+//    }
+// 
+// 	
+//	public void readMetadata(File imageDir) throws IOException{
+//		File in = imageDir;
+//	 
+//		try (ImageInputStream input = ImageIO.createImageInputStream(in)) {
+//            Iterator<ImageReader> readers = ImageIO.getImageReaders(input);
+//            ImageReader reader = readers.next(); // TODO: Validate that there are readers
+//
+//            reader.setInput(input);
+//            String value = getTextEntry(reader.getImageMetadata(0), "label");
+//            
+//            System.out.println("value: " + value);
+//        }
+//	}
+//
+//    
+//	private static void addTextEntry(final IIOMetadata metadata, final String key, final String value) throws IIOInvalidTreeException {
+//		IIOMetadataNode textEntry = new IIOMetadataNode("TextEntry");
+//        textEntry.setAttribute("keyword", key);
+//        textEntry.setAttribute("value", value);
+//
+//        IIOMetadataNode text = new IIOMetadataNode("Text");
+//        text.appendChild(textEntry);
+//
+//        IIOMetadataNode root = new IIOMetadataNode(IIOMetadataFormatImpl.standardMetadataFormatName);
+//        root.appendChild(text);
+//
+//        metadata.mergeTree(IIOMetadataFormatImpl.standardMetadataFormatName, root);
+//    
+//	}
+//
+//    
+//	private static String getTextEntry(final IIOMetadata metadata, final String key) {
+//        IIOMetadataNode root = (IIOMetadataNode) metadata.getAsTree(IIOMetadataFormatImpl.standardMetadataFormatName);
+//        NodeList entries = root.getElementsByTagName("TextEntry");
+//
+//        for (int i = 0; i < entries.getLength(); i++) {
+//            IIOMetadataNode node = (IIOMetadataNode) entries.item(i);
+//            if (node.getAttribute("keyword").equals(key)) {
+//                return node.getAttribute("value");
+//            }
+//        }
+//
+//        return null;
+//    
+//	}
 	
 }
 
