@@ -30,7 +30,6 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FilenameFilter;
 import java.io.IOException;
-import java.nio.file.FileSystemException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -41,7 +40,6 @@ import java.util.List;
 import java.util.Locale;
 
 import javax.swing.SwingWorker;
-import javax.swing.border.Border;
 
 import org.w3c.dom.Element;
 import org.w3c.dom.NamedNodeMap;
@@ -50,7 +48,6 @@ import org.w3c.dom.NodeList;
 
 
 import java.awt.GridBagConstraints;
-import java.awt.BasicStroke;
 import java.awt.CardLayout;
 import java.awt.Color;
 import java.awt.Dimension;
