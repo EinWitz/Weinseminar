@@ -573,6 +573,7 @@ public class LabelIt implements KeyListener {
 			                publish(imgList.getLast());
 			                refListTemp.add(refList.get(index));
 			                System.out.println("image: " + refList.get(index).getName());
+			                index++;
 			                
 			            } catch (final IOException e) {
 			            	System.out.println("Das waren alle Elemente.");
@@ -601,7 +602,9 @@ public class LabelIt implements KeyListener {
 						 JLabel jl = new JLabel();
 						 labellist.add(jl);
 							jl.setSize(frame.getSize());
+							Image scaledImage = image.getScaledInstance(-1, frame.getHeight(),Image.SCALE_DEFAULT);
 							jl.setIcon(new ImageIcon(image));
+							jl.setHorizontalAlignment(JLabel.CENTER);
 							lPanel.add(jl,null,-1);
 						}catch (Exception e) {
 							e.getMessage();
