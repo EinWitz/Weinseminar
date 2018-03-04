@@ -66,11 +66,10 @@ public class LabelItFileVisitor implements KeyListener {
 	private static File outputdirT;
 	private LinkedList<File> refList;
 	private LinkedList<Pair> last3;
-	private LinkedList<File> refListTemp;
 	private LinkedList<BufferedImage> imgList;
 	private LinkedList<JLabel> labellist;
 	private LinkedList<JLabel> labellistLast3;
-	private int batchsize=25; //Die Größe der Bilderbatches die in den Arbeitsspeicher geladen und dann angezeigt werden
+	private int batchsize=5; //Die Größe der Bilderbatches die in den Arbeitsspeicher geladen und dann angezeigt werden
 	private LinkedList<Path> deletePaths;
 	
 
@@ -83,9 +82,6 @@ public class LabelItFileVisitor implements KeyListener {
 	private int skip;
 	private ConcurrentHashMap<String, File> chm;
 	private boolean loadingRefs;
-	private int tbremoved;
-	private boolean loadingImgs;
-	private int modifier;
 
 	/**
 	 * Launch the application.
@@ -122,14 +118,10 @@ public class LabelItFileVisitor implements KeyListener {
 		skip=-1;
 		labellist = new LinkedList<JLabel>();
 		imgList = new LinkedList<BufferedImage>();
-		refListTemp = new LinkedList<File>();
 		last3 = new LinkedList<Pair>();
 		deletePaths = new LinkedList<Path>();
 		chm = new ConcurrentHashMap<String,File>();
 		loadingRefs =false;
-		tbremoved = 0;
-		loadingImgs =false;
-		modifier =0;
 		
 		
 		//Liste zum Speichern der Bildpfade der sourcedir
@@ -254,7 +246,7 @@ public class LabelItFileVisitor implements KeyListener {
         try {
 			Files.walkFileTree(sourcedir.toPath(), new SimpleFileVisitor<Path>() { 
 				int counter=0;
-				int batchsizeRefs=10;
+				int batchsizeRefs=100;
 				Path lastFile;
 				
 			    @Override
@@ -327,7 +319,7 @@ public class LabelItFileVisitor implements KeyListener {
 	}
 	
 	
-	//Warum BufferedImage speichern?! Lieber wie in displayLast3() Methode machen /// Oder als ImageIcon speichern <- auch gut
+	
 	public void loadImages(){
 		
 		System.out.println("Reflist size: "+refList.size());
@@ -356,7 +348,6 @@ public class LabelItFileVisitor implements KeyListener {
 				Image scaledImage = imgList.get(i).getScaledInstance(-1, frame.getHeight(),Image.SCALE_DEFAULT);
 				labellist.get(i).setIcon(new ImageIcon(scaledImage));
 				labellist.get(i).setHorizontalAlignment(JLabel.CENTER);
-				//labellist.get(i).setVisible(true);
 				lPanel.add(labellist.get(i),null,-1);
 			}catch (Exception e) {
 				System.out.println("Vermutlich nen leerer Imagecontainer DU HUND!");
@@ -412,15 +403,12 @@ public class LabelItFileVisitor implements KeyListener {
             		//negativsample -> Metadaten eintragen
             		(new ImageTask(0,"n",refList.getFirst())).execute();
             		
-            		//Zum späteren hochzählen
+            		//Zum späteren hochzählen von skip
             		chm.put(refList.getFirst().getAbsolutePath(), refList.getFirst());
             		
-            		if(loadingImgs) {
-            			refList.removeFirst();
-            			changeCurrentModifier(1);
-            		}else {
-            			refList.removeFirst();
-            		}
+            		
+            		refList.removeFirst();
+            		
             		
             		imgList.getFirst().flush();
             		imgList.removeFirst();
@@ -450,9 +438,7 @@ public class LabelItFileVisitor implements KeyListener {
                 	lPanelCorr.repaint();
             		
         		}else{
-            		System.out.println("Das war das letzte Bild");
-            		//displayLastImageMessageOrSth();
-            		System.out.println(last3.size());
+            		System.out.println("Wechsel zu Normalem Modus");
             		
             		cards.setBorder(BorderFactory.createLineBorder(Color.BLACK, 5));
             		cl.show(cards, "Normal");
@@ -463,13 +449,18 @@ public class LabelItFileVisitor implements KeyListener {
         	
         case KeyEvent.VK_RIGHT:
         	if(normalMode==true) {
-        		if(labellist.size()>0  && refListTemp.size()!=0){ //Warum reflist!=0?!!!!! nochmal anschauen p.s. ich glaube es funktioniert
+        		if(labellist.size()>0  && refList.size()!=0){ //Warum reflist!=0?!!!!! nochmal anschauen p.s. ich glaube es funktioniert
             		
             		lPanel.remove(labellist.removeFirst());
-            		System.out.println(refListTemp.getFirst());
                 	//positivsample -> Metadaten eintragen
-            		(new ImageTask(0,"p",refListTemp.getFirst())).execute();			
-            		refListTemp.removeFirst();
+            		(new ImageTask(0,"p",refList.getFirst())).execute();	
+            		
+            		//Zum späteren hochzählen von skip
+            		chm.put(refList.getFirst().getAbsolutePath(), refList.getFirst());
+            		
+            		
+            		refList.removeFirst();
+            		
             		imgList.getFirst().flush();
                 	lPanel.revalidate();
                 	lPanel.repaint();
@@ -487,6 +478,7 @@ public class LabelItFileVisitor implements KeyListener {
         			System.out.println("Korrekturmodus");
         			if(!last3.getLast().getMetaValue().equals("p")) {
         				(new ImageTask(2,"p",last3.getLast().getFile())).execute();
+
         			}
         			
             		lPanelCorr.remove(labellistLast3.removeFirst());
@@ -496,9 +488,7 @@ public class LabelItFileVisitor implements KeyListener {
                 	lPanelCorr.repaint();
             		
         		}else{
-            		System.out.println("Das war das letzte Bild");
-            		//displayLastImageMessageOrSth();
-            		System.out.println(last3.size());
+        			System.out.println("Wechsel zu Normalem Modus");
             		
             		cards.setBorder(BorderFactory.createLineBorder(Color.BLACK, 5));
             		cl.show(cards, "Normal");
@@ -510,13 +500,18 @@ public class LabelItFileVisitor implements KeyListener {
             
         case KeyEvent.VK_SPACE:
         	if(normalMode==true) {
-        		if(labellist.size()>0  && refListTemp.size()!=0){ //Warum reflist!=0?!!!!! nochmal anschauen p.s. ich glaube es funktioniert
+        		if(labellist.size()>0  && refList.size()!=0){ //Warum reflist!=0?!!!!! nochmal anschauen p.s. ich glaube es funktioniert
             		
             		lPanel.remove(labellist.removeFirst());
-            		System.out.println(refListTemp.getFirst());
                 	//trash -> Metadaten eintragen
-            		(new ImageTask(0,"t",refListTemp.getFirst())).execute();
-            		refListTemp.removeFirst();
+            		(new ImageTask(0,"t",refList.getFirst())).execute();
+            		
+            		//Zum späteren hochzählen von skip
+            		chm.put(refList.getFirst().getAbsolutePath(), refList.getFirst());
+            		
+            		
+            		refList.removeFirst();
+            		
             		imgList.getFirst().flush();
                 	lPanel.revalidate();
                 	lPanel.repaint();
@@ -534,6 +529,7 @@ public class LabelItFileVisitor implements KeyListener {
         			System.out.println("Korrekturmodus");
         			if(!last3.getLast().getMetaValue().equals("t")) {
         				(new ImageTask(2,"t",last3.getLast().getFile())).execute();
+
         			}
         			
             		lPanelCorr.remove(labellistLast3.removeFirst());
@@ -543,9 +539,7 @@ public class LabelItFileVisitor implements KeyListener {
                 	lPanelCorr.repaint();
             		
         		}else{
-            		System.out.println("Das war das letzte Bild");
-            		//displayLastImageMessageOrSth();
-            		System.out.println(last3.size());
+        			System.out.println("Wechsel zu Normalem Modus");
             		
             		cards.setBorder(BorderFactory.createLineBorder(Color.BLACK, 5));
             		cl.show(cards, "Normal");
@@ -575,18 +569,22 @@ public class LabelItFileVisitor implements KeyListener {
         	break;
      }
 		
-		//Ein Batch Bilder nachladen bei weniger als 8 Bildern in der Anzeige
-		if(labellist.size()<8){
+		//Ein Batch Bilder nachladen bei weniger als batchsize Bildern in der Anzeige (-> effektiv nur 1 Bild, da for-schleifen-Kopf-Bedingung nicht erfüllt ist ->Absicht)
+		if(labellist.size()<batchsize){ //Es wird also immer nur ein Bild nachgeladen
 			System.gc();
-			loadingImgs = true;
-			(new ImageTask(1,null,null)).execute();
+			//Ziemlich unsafe hier! (allerdings keine sehr schlimmen Folgen (höchstens 1,2 Bilder werden im Notfall übersprungen-> Am Ende die übriggebliebenen im Ordner noch zuende labeln)
+			//(new ImageTask(1,null,null)).execute();
+			
+			//muss nicht im Thread geschehen da die Bilder sehr klein sind
+			allTheStuff();
+			
 		}
 		
 		//refList nachladen
 		if(refList.size()<batchsize && loadingRefs==false) {
 			loadingRefs=true;
-			skip = refList.size()+chm.size();
-			loadImagePaths();
+			skip = (refList.size()+chm.size())-1;
+			//loadImagePaths();
 			ImageTask it = new ImageTask(3,null,null);
 			it.execute();
 		}
@@ -596,6 +594,31 @@ public class LabelItFileVisitor implements KeyListener {
 	@Override
 	public void keyTyped(KeyEvent arg0) {
 		// TODO Auto-generated method stub
+		
+	}
+	
+	//Macht das gleich wie ein ImageTask dem 1 als erster Parameter übergeben wurde
+	public void allTheStuff() {
+		 for (int i=labellist.size(); i<batchsize && i<refList.size();i++) {
+	            try {
+	            	if(refList.get(i)!=null) {
+	            		imgList.add(ImageIO.read(refList.get(i)));
+	            		 JLabel jl = new JLabel();
+	        			 labellist.add(jl);
+	        			 jl.setSize(frame.getSize());
+	        			 Image scaledImage = imgList.getLast().getScaledInstance(-1, frame.getHeight(),Image.SCALE_DEFAULT);
+	        			 jl.setIcon(new ImageIcon(scaledImage));
+	        			 jl.setHorizontalAlignment(JLabel.CENTER);
+	        			 lPanel.add(jl,null,-1);
+		                System.out.println("image: " + refList.get(i).getName());
+	            	}          	
+	             
+	            } catch (final IOException e) {
+	            	System.out.println("Das waren alle Elemente.");
+	                // handle errors here
+	            }	
+	    }
+		
 		
 	}
 	
@@ -630,19 +653,6 @@ public class LabelItFileVisitor implements KeyListener {
 	
 	}
 	
-	public int currentModifier() {
-		return modifier;
-	}
-	
-	public void changeCurrentModifier(int index) {
-		if(index == 0) {
-			modifier =0;
-		}else {
-			modifier++;
-		}
-		
-	}
-	
 
 	//Threading
 	class ImageTask extends SwingWorker<List<BufferedImage>, BufferedImage>{
@@ -666,14 +676,12 @@ public class LabelItFileVisitor implements KeyListener {
 			switch(action) {
 			case 1:
 				System.out.println("Reflist size (nachladen): "+refList.size());
-				 for (int i=0; i<batchsize && i<refList.size();i++) {
+				 for (int i=labellist.size(); i<batchsize && i<refList.size();i++) {
 			            try {
-			            	if(refList.get(i)!=null && i>=0) {
+			            	if(refList.get(i)!=null) {
 			            		imgList.add(ImageIO.read(refList.get(i)));
 				                publish(imgList.getLast());
 				                System.out.println("image: " + refList.get(i).getName());
-				                i=i-currentModifier();
-				                changeCurrentModifier(0);
 			            	}          	
 			             
 			            } catch (final IOException e) {
@@ -681,10 +689,6 @@ public class LabelItFileVisitor implements KeyListener {
 			                // handle errors here
 			            }	
 			    }
-				loadingImgs =false;
-				for(int w= 0;w<tbremoved;w++) {
-					refList.removeFirst();
-				}
 				System.out.println("imglist size (nachladen): "+imgList.size());
 				// TODO Auto-generated method stub
 				return imgList;
