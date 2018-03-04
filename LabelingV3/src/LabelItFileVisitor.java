@@ -41,6 +41,7 @@ import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.ConcurrentHashMap;
 
 import javax.swing.SwingWorker;
 
@@ -69,7 +70,6 @@ public class LabelItFileVisitor implements KeyListener {
 	private LinkedList<BufferedImage> imgList;
 	private LinkedList<JLabel> labellist;
 	private LinkedList<JLabel> labellistLast3;
-	private int index;
 	private int batchsize=25; //Die Größe der Bilderbatches die in den Arbeitsspeicher geladen und dann angezeigt werden
 	private LinkedList<Path> deletePaths;
 	
@@ -80,6 +80,12 @@ public class LabelItFileVisitor implements KeyListener {
 	private JLayeredPane lPanelCorr;
 	private CardLayout cl;
 	private boolean normalMode;
+	private int skip;
+	private ConcurrentHashMap<String, File> chm;
+	private boolean loadingRefs;
+	private int tbremoved;
+	private boolean loadingImgs;
+	private int modifier;
 
 	/**
 	 * Launch the application.
@@ -113,12 +119,18 @@ public class LabelItFileVisitor implements KeyListener {
 	private void initialize() {
 		
 		//initialize some variables
-		index =0;
+		skip=-1;
 		labellist = new LinkedList<JLabel>();
 		imgList = new LinkedList<BufferedImage>();
 		refListTemp = new LinkedList<File>();
 		last3 = new LinkedList<Pair>();
 		deletePaths = new LinkedList<Path>();
+		chm = new ConcurrentHashMap<String,File>();
+		loadingRefs =false;
+		tbremoved = 0;
+		loadingImgs =false;
+		modifier =0;
+		
 		
 		//Liste zum Speichern der Bildpfade der sourcedir
 	    refList = new LinkedList<File>();
@@ -239,16 +251,74 @@ public class LabelItFileVisitor implements KeyListener {
 	//Todo: concurrent hashmap mit dateien die im thread liegen. Wenn keine elemente mehr in refList -> walkfiletree() -> skipwert (+hashmap.size()) um zu übespringen was schon in reflist ist -> Threads mit while(..) sleep() blockieren solange loadingPaths==true
 	//File Visitor
 	public void loadImagePaths(){
-		Path startPath = sourcedir.toPath();
         try {
-			Files.walkFileTree(startPath, new SimpleFileVisitor<Path>() { 
+			Files.walkFileTree(sourcedir.toPath(), new SimpleFileVisitor<Path>() { 
+				int counter=0;
+				int batchsizeRefs=10;
+				Path lastFile;
+				
 			    @Override
-			    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)
+			    public FileVisitResult visitFile(Path dir, BasicFileAttributes attrs)
 			        throws IOException
 			    {
-			        
-			        return FileVisitResult.CONTINUE;
+			    	lastFile = dir;
+			    	
+			    	if(counter>skip && counter< skip+batchsizeRefs) {
+			    		 if(!dir.toFile().isDirectory()) {
+					        	refList.add(dir.toFile());
+					        	System.out.println(refList);
+					        	counter++;
+					        }
+			    		 return FileVisitResult.CONTINUE;
+			    	}else {
+			    		
+			    		if(counter>(skip+batchsizeRefs)) {
+			    			counter=0;
+				    		System.out.println(refList);
+				    		loadingRefs=false;
+				    		return FileVisitResult.TERMINATE;
+			    		}
+			    		
+			    		if(counter<=skip) {
+			    			counter++;
+			    			return FileVisitResult.CONTINUE;
+			    		}
+			    		loadingRefs=false;
+			    		return FileVisitResult.TERMINATE;
+			    	}
+			       
+			       
 			    }
+			    
+			    @Override
+	             public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs)
+	                 throws IOException
+	             {
+			    	if(dir.equals(lastFile)) {
+			    		System.out.println("Ende =also alle dateien");
+			    		counter=0;
+			    		loadingRefs=false;
+			    		return FileVisitResult.TERMINATE;
+			    	}
+			    	
+			    	if(!dir.toFile().isDirectory()) {
+			    		return FileVisitResult.CONTINUE;
+			        }//else {
+//			        	if(!dir.toFile().getAbsolutePath().equals(sourcedir.getAbsolutePath())) {
+//				        	counter=0;
+//				    		loadingRefs=false;
+//				        	return FileVisitResult.TERMINATE;
+//			        	}else {
+//			        		return FileVisitResult.CONTINUE;
+//			        	}
+//			        }
+					return FileVisitResult.CONTINUE;
+			    	
+			    	
+			    	
+	             }
+			    
+			    
 			});
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
@@ -259,20 +329,22 @@ public class LabelItFileVisitor implements KeyListener {
 	
 	//Warum BufferedImage speichern?! Lieber wie in displayLast3() Methode machen /// Oder als ImageIcon speichern <- auch gut
 	public void loadImages(){
-		int initIndex = index;
 		
-		 for (int i=initIndex; i<initIndex+batchsize && i<refList.size();i++) {
-	            try {
-	                imgList.add(ImageIO.read(refList.get(index)));
-	                refListTemp.add(refList.get(index));
-	                System.out.println("image: " + refList.get(index).getName());
-	                index++;
-	            } catch (final IOException e) {
-	            	System.out.println("Das waren alle Elemente.");
-	                // handle errors here
-	            }
+		System.out.println("Reflist size: "+refList.size());
+		 for (int i=0; i<batchsize && i<refList.size();i++) {
+				 try {
+					 	if(refList.get(i)!=null) {
+					 		imgList.add(ImageIO.read(refList.get(i)));
+			                System.out.println("image: " + refList.get(i).getName());
+					 	}	          
+		            } catch (final IOException e) {
+		            	System.out.println("Das waren alle Elemente.");
+		                // handle errors here
+		            }
+	            
 	    }
 		
+		System.out.println("imglist size: "+imgList.size());
 	}
 	
 	public void displayImages(){
@@ -334,12 +406,22 @@ public class LabelItFileVisitor implements KeyListener {
 		switch( keyCode ) { 
         case KeyEvent.VK_LEFT:
         	if(normalMode==true) {
-        		if(labellist.size()>0 && refListTemp.size()!=0){ //Warum reflist!=0?!!!!! nochmal anschauen  p.s. ich glaube es funktioniert
+        		if(labellist.size()>0 && refList.size()!=0){ //Warum reflist!=0?!!!!! nochmal anschauen  p.s. ich glaube es funktioniert
             		lPanel.remove(labellist.removeFirst());
-            		System.out.println(refListTemp.getFirst());
+            		
             		//negativsample -> Metadaten eintragen
-            		(new ImageTask(0,"n",refListTemp.getFirst())).execute();
-            		refListTemp.removeFirst();
+            		(new ImageTask(0,"n",refList.getFirst())).execute();
+            		
+            		//Zum späteren hochzählen
+            		chm.put(refList.getFirst().getAbsolutePath(), refList.getFirst());
+            		
+            		if(loadingImgs) {
+            			refList.removeFirst();
+            			changeCurrentModifier(1);
+            		}else {
+            			refList.removeFirst();
+            		}
+            		
             		imgList.getFirst().flush();
             		imgList.removeFirst();
                 	lPanel.revalidate();
@@ -496,7 +578,17 @@ public class LabelItFileVisitor implements KeyListener {
 		//Ein Batch Bilder nachladen bei weniger als 8 Bildern in der Anzeige
 		if(labellist.size()<8){
 			System.gc();
+			loadingImgs = true;
 			(new ImageTask(1,null,null)).execute();
+		}
+		
+		//refList nachladen
+		if(refList.size()<batchsize && loadingRefs==false) {
+			loadingRefs=true;
+			skip = refList.size()+chm.size();
+			loadImagePaths();
+			ImageTask it = new ImageTask(3,null,null);
+			it.execute();
 		}
 
 	}
@@ -523,7 +615,6 @@ public class LabelItFileVisitor implements KeyListener {
 		String filePath3 = sourcedir.getParent()+File.separatorChar+"trash";
 		outputdirT = new File(filePath3);
 		
-		System.out.println(outputdirP);
 		//Verzeichnisse erstellen
 		if(!outputdirP.exists()) {
 			outputdirP.mkdirs();
@@ -537,6 +628,19 @@ public class LabelItFileVisitor implements KeyListener {
 			outputdirT.mkdirs();
 		}
 	
+	}
+	
+	public int currentModifier() {
+		return modifier;
+	}
+	
+	public void changeCurrentModifier(int index) {
+		if(index == 0) {
+			modifier =0;
+		}else {
+			modifier++;
+		}
+		
 	}
 	
 
@@ -559,34 +663,54 @@ public class LabelItFileVisitor implements KeyListener {
 		protected List<BufferedImage> doInBackground() throws Exception {
 			
 			//Bilder nachladen
-			if(action==1) {
-				int initIndex = index;
-				
-				 for (int i=0; i< initIndex+batchsize && i<refList.size();i++) {
+			switch(action) {
+			case 1:
+				System.out.println("Reflist size (nachladen): "+refList.size());
+				 for (int i=0; i<batchsize && i<refList.size();i++) {
 			            try {
-			                imgList.add(ImageIO.read(refList.get(index)));
-			                publish(imgList.getLast());
-			                refListTemp.add(refList.get(index));
-			                System.out.println("image: " + refList.get(index).getName());
-			                index++;
-			                
+			            	if(refList.get(i)!=null && i>=0) {
+			            		imgList.add(ImageIO.read(refList.get(i)));
+				                publish(imgList.getLast());
+				                System.out.println("image: " + refList.get(i).getName());
+				                i=i-currentModifier();
+				                changeCurrentModifier(0);
+			            	}          	
+			             
 			            } catch (final IOException e) {
 			            	System.out.println("Das waren alle Elemente.");
 			                // handle errors here
 			            }	
 			    }
+				loadingImgs =false;
+				for(int w= 0;w<tbremoved;w++) {
+					refList.removeFirst();
+				}
+				System.out.println("imglist size (nachladen): "+imgList.size());
 				// TODO Auto-generated method stub
 				return imgList;
-			}else {
+				
+			case 0:
 				//File out = writeMetadata(label, ref); <- Methode für png
 				//readMetadata(out); <- Methode für png
 				
 				File out = writeMeta(ref,label); //<- Methode für jpg
 				readMeta(out); //<- Methode für jpg
+				break;
 				
-				return null;
+				
+			case 2:
+				//File out = writeMetadata(label, ref); <- Methode für png
+				//readMetadata(out); <- Methode für png
+				
+				File out2 = writeMeta(ref,label); //<- Methode für jpg
+				readMeta(out2); //<- Methode für jpg
+				break;
+			case 3:
+				loadImagePaths();
+				loadingRefs =false;
 			}
-			
+				
+			return null;
 		}
 		
 		 @Override
@@ -697,6 +821,15 @@ public class LabelItFileVisitor implements KeyListener {
 	        writer.dispose();
 	        reader.dispose();
 	        
+	        while(loadingRefs) {
+	        	try {
+					Thread.sleep(2000);
+					System.out.println("waiting...");
+				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+	        }
 	   
 	        //Delete origin
 	        Path path = Paths.get(imageDir.getAbsolutePath());
@@ -709,14 +842,14 @@ public class LabelItFileVisitor implements KeyListener {
 				deletePaths.add(path);
 				
 			}
-	        
+	        chm.remove(imageDir.getAbsolutePath());
 	        return out;
 	}
 	
 	public void readMeta(File file) {
 		//inputStream erstellen (siehe png methode), writer hier löschen
 		
-		 ImageWriter writer = ImageIO.getImageWritersBySuffix("jpeg").next();
+			ImageWriter writer = ImageIO.getImageWritersBySuffix("jpeg").next();
 	        ImageReader reader = ImageIO.getImageReader(writer);
 
 	        try {
