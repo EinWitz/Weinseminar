@@ -246,7 +246,7 @@ public class LabelItFileVisitor implements KeyListener {
         try {
 			Files.walkFileTree(sourcedir.toPath(), new SimpleFileVisitor<Path>() { 
 				int counter=0;
-				int batchsizeRefs=100;
+				int batchsizeRefs= 20; //sinvoll sind 20 oder so bei einzelnem Nachladen der Bilder
 				Path lastFile;
 				
 			    @Override
@@ -847,6 +847,8 @@ public class LabelItFileVisitor implements KeyListener {
 				
 			}
 	        chm.remove(imageDir.getAbsolutePath());
+	        
+	        readMeta(out);
 	        return out;
 	}
 	
