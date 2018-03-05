@@ -254,8 +254,9 @@ public class LabelIt implements KeyListener {
 	    };
 	    
 	    for (final File f : sourcedir.listFiles(IMAGE_FILTER)) {
-           refList.add(f);
+	    	refList.add(f);
 	    }
+	    //Collections.sort(refList);
 	    
 	    System.out.println(refList);
 	}

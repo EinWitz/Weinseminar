@@ -255,7 +255,7 @@ public class LabelItFileVisitor implements KeyListener {
 			    {
 			    	lastFile = dir;
 			    	
-			    	if(counter>skip && counter< skip+batchsizeRefs) {
+			    	if(counter>skip && counter<= skip+batchsizeRefs) {
 			    		 if(!dir.toFile().isDirectory()) {
 					        	refList.add(dir.toFile());
 					        	System.out.println(refList);
@@ -268,6 +268,7 @@ public class LabelItFileVisitor implements KeyListener {
 			    			counter=0;
 				    		System.out.println(refList);
 				    		loadingRefs=false;
+				    		Collections.sort(refList);
 				    		return FileVisitResult.TERMINATE;
 			    		}
 			    		
@@ -276,6 +277,7 @@ public class LabelItFileVisitor implements KeyListener {
 			    			return FileVisitResult.CONTINUE;
 			    		}
 			    		loadingRefs=false;
+			    		Collections.sort(refList);
 			    		return FileVisitResult.TERMINATE;
 			    	}
 			       
@@ -290,6 +292,7 @@ public class LabelItFileVisitor implements KeyListener {
 			    		System.out.println("Ende =also alle dateien");
 			    		counter=0;
 			    		loadingRefs=false;
+			    		Collections.sort(refList);
 			    		return FileVisitResult.TERMINATE;
 			    	}
 			    	
