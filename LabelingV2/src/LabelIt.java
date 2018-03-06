@@ -65,7 +65,7 @@ public class LabelIt implements KeyListener {
 	private LinkedList<JLabel> labellist;
 	private LinkedList<JLabel> labellistLast3;
 	private int index;
-	private int batchsize=25; //Die Größe der Bilderbatches die in den Arbeitsspeicher geladen und dann angezeigt werden
+	private int batchsize=15; //Die Größe der Bilderbatches die in den Arbeitsspeicher geladen und dann angezeigt werden
 	private LinkedList<Path> deletePaths;
 	
 
@@ -75,6 +75,7 @@ public class LabelIt implements KeyListener {
 	private JLayeredPane lPanelCorr;
 	private CardLayout cl;
 	private boolean normalMode;
+	private boolean loadingImages;
 
 	/**
 	 * Launch the application.
@@ -114,6 +115,7 @@ public class LabelIt implements KeyListener {
 		refListTemp = new LinkedList<File>();
 		last3 = new LinkedList<Pair>();
 		deletePaths = new LinkedList<Path>();
+		loadingImages =false;
 		
 		//Liste zum Speichern der Bildpfade der sourcedir
 	    refList = new LinkedList<File>();
@@ -340,7 +342,7 @@ public class LabelIt implements KeyListener {
 		
 		switch( keyCode ) { 
         case KeyEvent.VK_LEFT:
-        	if(normalMode==true) {
+        	if(normalMode==true && loadingImages==false) {
         		if(labellist.size()>0 && refListTemp.size()!=0){ //Warum reflist!=0?!!!!! nochmal anschauen  p.s. ich glaube es funktioniert
             		lPanel.remove(labellist.removeFirst());
             		System.out.println(refListTemp.getFirst());
@@ -387,7 +389,7 @@ public class LabelIt implements KeyListener {
         	}
         	
         case KeyEvent.VK_RIGHT:
-        	if(normalMode==true) {
+        	if(normalMode==true && loadingImages==false) {
         		if(labellist.size()>0  && refListTemp.size()!=0){ //Warum reflist!=0?!!!!! nochmal anschauen p.s. ich glaube es funktioniert
             		
             		lPanel.remove(labellist.removeFirst());
@@ -434,7 +436,7 @@ public class LabelIt implements KeyListener {
         	
             
         case KeyEvent.VK_SPACE:
-        	if(normalMode==true) {
+        	if(normalMode==true && loadingImages==false) {
         		if(labellist.size()>0  && refListTemp.size()!=0){ //Warum reflist!=0?!!!!! nochmal anschauen p.s. ich glaube es funktioniert
             		
             		lPanel.remove(labellist.removeFirst());
@@ -481,7 +483,7 @@ public class LabelIt implements KeyListener {
 
         	
         case  KeyEvent.VK_BACK_SPACE:
-        	if(normalMode==true) {
+        	if(normalMode==true && loadingImages==false) {
         		if(last3.size()!=0) {
         			normalMode =false;
         			displayLast3();
@@ -501,8 +503,9 @@ public class LabelIt implements KeyListener {
      }
 		
 		//Ein Batch Bilder nachladen bei weniger als 8 Bildern in der Anzeige
-		if(labellist.size()<8){
+		if(labellist.size()<8 && loadingImages==false){
 			System.gc();
+			loadingImages=true;
 			(new ImageTask(1,null,null)).execute();
 		}
 
@@ -569,7 +572,7 @@ public class LabelIt implements KeyListener {
 			if(action==1) {
 				int initIndex = index;
 				
-				 for (int i=0; i< initIndex+batchsize && i<refList.size();i++) {
+				 for (int i=initIndex; i< initIndex+batchsize && i<refList.size();i++) {
 			            try {
 			                imgList.add(ImageIO.read(refList.get(index)));
 							Image scaledImage = imgList.getLast().getScaledInstance(-1, frame.getHeight(),Image.SCALE_DEFAULT);
@@ -615,6 +618,14 @@ public class LabelIt implements KeyListener {
 			 }	 
 			
 	     }
+		 
+		 @Override
+		 protected void done() {
+			 if(action==1) {
+				 loadingImages=false;
+			 }
+		 }
+
 		
 	}
 	
