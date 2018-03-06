@@ -183,6 +183,7 @@ public class LabelIt implements KeyListener {
         cards.setLayout(new CardLayout());
         cards.setPreferredSize(frame.getSize());
         cards.setBorder(BorderFactory.createLineBorder(Color.BLACK, 5));
+        cards.setBackground(Color.BLACK);
         frame.getContentPane().add(cards,gbc_panel);
         
 		
@@ -204,6 +205,8 @@ public class LabelIt implements KeyListener {
         //progressbar
       	pbar = new JProgressBar();
       	pbar.setMinimum(MY_MINIMUM);
+      	
+      	
         
 	}
 	
@@ -290,7 +293,7 @@ public class LabelIt implements KeyListener {
 				//labellist.get(i).setVisible(true);
 				lPanel.add(labellist.get(i),null,-1);
 			}catch (Exception e) {
-				System.out.println("Vermutlich nen leerer Imagecontainer DU HUND!");
+				//System.out.println("Vermutlich nen leerer Imagecontainer DU HUND!");
 			}
 			
 		}
@@ -316,7 +319,7 @@ public class LabelIt implements KeyListener {
 				lPanelCorr.add(labellistLast3.get(i),null, 0);
 				
 			}catch (Exception e) {
-				System.out.println("Vermutlich nen leerer Imagecontainer DU HUND!");
+				//System.out.println("Vermutlich nen leerer Imagecontainer DU HUND!");
 			}
 			
 		}
@@ -380,6 +383,7 @@ public class LabelIt implements KeyListener {
             		//System.out.println(last3.size());
             		
             		cards.setBorder(BorderFactory.createLineBorder(Color.BLACK, 5));
+            		pbar.setBorder(BorderFactory.createMatteBorder(5, 0, 5, 0, Color.BLACK));
             		cl.show(cards, "Normal");
             		normalMode=true;
             	}	
@@ -429,6 +433,7 @@ public class LabelIt implements KeyListener {
             		//System.out.println(last3.size());
             		
             		cards.setBorder(BorderFactory.createLineBorder(Color.BLACK, 5));
+            		pbar.setBorder(BorderFactory.createMatteBorder(5, 0, 5, 0, Color.BLACK));
             		cl.show(cards, "Normal");
             		normalMode=true;
             	}	
@@ -479,6 +484,7 @@ public class LabelIt implements KeyListener {
             		//System.out.println(last3.size());
             		
             		cards.setBorder(BorderFactory.createLineBorder(Color.BLACK, 5));
+            		pbar.setBorder(BorderFactory.createMatteBorder(5, 0, 5, 0, Color.BLACK));
             		cl.show(cards, "Normal");
             		normalMode=true;
             	}	
@@ -492,11 +498,13 @@ public class LabelIt implements KeyListener {
         			normalMode =false;
         			displayLast3();
             		cards.setBorder(BorderFactory.createLineBorder(Color.RED, 5));
+            		pbar.setBorder(BorderFactory.createMatteBorder(5, 0, 5, 0, Color.RED));
             		cl.show(cards, "Korrektur");
             	}
             	break;
         	}else {
         		cards.setBorder(BorderFactory.createLineBorder(Color.BLACK, 5));
+        		pbar.setBorder(BorderFactory.createMatteBorder(5, 0, 5, 0, Color.BLACK));
         		cl.show(cards, "Normal");
         		normalMode=true;
         	}
