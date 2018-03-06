@@ -10,3 +10,7 @@ provider "inwx" {
 provider "hcloud" {
   token = "${var.hcloud_token}"
 }
+
+provider "null" {
+  version = "~> 1.0"
+}
