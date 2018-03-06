@@ -299,6 +299,8 @@ public class LabelIt implements KeyListener {
 	}
 	
 	public void displayLast3(){
+		//Vielleicht? ->//Für last3 eine linkedlockedqueue benutzen (thread-safe) -> dann alle elemente der reihe nach aus last3 rausholen (kopieren in array) -> wenn modus zu normal gewechselt wird ,wenn array.size!=0 -> kopieren der arrayelemente in last3
+		
 		lPanelCorr.removeAll();
 		lPanelCorr.revalidate();
     	lPanelCorr.repaint();
@@ -481,10 +483,10 @@ public class LabelIt implements KeyListener {
         case  KeyEvent.VK_BACK_SPACE:
         	if(normalMode==true) {
         		if(last3.size()!=0) {
+        			normalMode =false;
+        			displayLast3();
             		cards.setBorder(BorderFactory.createLineBorder(Color.RED, 5));
             		cl.show(cards, "Korrektur");
-            		displayLast3();
-            		normalMode =false;
             	}
             	break;
         	}else {
@@ -546,7 +548,7 @@ public class LabelIt implements KeyListener {
 	
 
 	//Threading
-	class ImageTask extends SwingWorker<List<BufferedImage>, BufferedImage>{
+	class ImageTask extends SwingWorker<List<BufferedImage>, Image>{
 
 		private int action;
 		private String label;
@@ -570,8 +572,9 @@ public class LabelIt implements KeyListener {
 				 for (int i=0; i< initIndex+batchsize && i<refList.size();i++) {
 			            try {
 			                imgList.add(ImageIO.read(refList.get(index)));
-			                publish(imgList.getLast());
+							Image scaledImage = imgList.getLast().getScaledInstance(-1, frame.getHeight(),Image.SCALE_DEFAULT);
 			                refListTemp.add(refList.get(index));
+							publish(scaledImage);
 			                System.out.println("image: " + refList.get(index).getName());
 			                index++;
 			                
@@ -586,7 +589,7 @@ public class LabelIt implements KeyListener {
 				//File out = writeMetadata(label, ref); <- Methode für png
 				//readMetadata(out); <- Methode für png
 				
-				File out = writeMeta(ref,label); //<- Methode für jpg
+				File out = writeMeta(ref,label,action); //<- Methode für jpg
 				readMeta(out); //<- Methode für jpg
 				
 				return null;
@@ -595,15 +598,14 @@ public class LabelIt implements KeyListener {
 		}
 		
 		 @Override
-	     protected void process(List<BufferedImage> chunks) {
+	     protected void process(List<Image> chunks) {
 			 if(action==1) {
-				 for(BufferedImage image : chunks){
+				 for(Image image : chunks){
 					 try{
 						 JLabel jl = new JLabel();
 						 labellist.add(jl);
 							jl.setSize(frame.getSize());
-							Image scaledImage = image.getScaledInstance(-1, frame.getHeight(),Image.SCALE_DEFAULT);
-							jl.setIcon(new ImageIcon(scaledImage));
+							jl.setIcon(new ImageIcon(image));
 							jl.setHorizontalAlignment(JLabel.CENTER);
 							lPanel.add(jl,null,-1);
 						}catch (Exception e) {
@@ -616,7 +618,7 @@ public class LabelIt implements KeyListener {
 		
 	}
 	
-	public synchronized File writeMeta(File imageDir, String label) { //synchronized ja/nein?
+	public synchronized File writeMeta(File imageDir, String label, int action) { //synchronized ja/nein?
 			File out = null;
 	        String filePath = null;
 	       
@@ -680,7 +682,7 @@ public class LabelIt implements KeyListener {
 		        output.close();
 		        
 		        //Put into last3
-		        if(normalMode == true) {
+		        if(action==0) { //Only if action==0 <- Thread wurde in normalemModus ausgelöst (Die Threads mit action=2 wurden im Korrekturmodus ausgelöst und sollen ihre Daten nicht wieder zurück in last3 schreiben)
 		        	 Pair pair = new Pair(out, label);
 		        	 last3.add(pair);
 				        if(last3.size()>3) {
