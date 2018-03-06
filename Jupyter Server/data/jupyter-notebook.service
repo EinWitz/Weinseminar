@@ -6,7 +6,7 @@ Documentation=man:jupyter-notebook
 User=anaconda
 Group=anaconda
 ExecStartPre=source /home/anaconda/anaconda3/bin/activate
-ExecStart=/home/anaconda/anaconda3/bin/jupyter-notebook --no-browser --port 10000
+ExecStart=/home/anaconda/.anaconda3/bin/jupyter-notebook --no-browser --port 10000 --config /home/anaconda/.anaconda3/.jupyter/jupyter_notebook_config.json
 
 [Install]
 WantedBy=multi-user.target

@@ -3,17 +3,17 @@ data "hcloud_servertype" "jupyter" {
 }
 
 resource "hcloud_sshkey" "jupyter-key" {
-    name = "Jupyter KeyEvent"
+    name = "Jupyter Key"
     public_key = "${var.ssh_authorized_key}"
 }
 
-data "hcloud_server" "jupyter" {
+resource "hcloud_server" "jupyter" {
   name = "jupyter.strtpvlla.net"
   server_type = "${data.hcloud_servertype.jupyter.id}"
   image = "2"
   ipv4_ptr = "jupyter.strtpvlla.net"
 
   ssh_keys = [
-        "${hcloud_sshkey.jupyter.id}"
+        "${hcloud_sshkey.jupyter-key.id}"
     ]
 }
